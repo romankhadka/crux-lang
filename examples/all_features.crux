@@ -1,0 +1,200 @@
+/* ============================================================
+   Crux Language — Complete Feature Showcase
+   All 100+ features demonstrated in one program
+   ============================================================ */
+
+# === Number Literals ===
+let decimal = 1_000_000
+let hex = 0xFF
+let binary = 0b1010
+let octal = 0o77
+let sci = 1.5e3
+print("Numbers: ${decimal}, ${hex}, ${binary}, ${octal}, ${sci}")
+
+# === String Interpolation & Builtins ===
+let name = "Crux"
+print("Hello from ${upper(name)}!")
+print("  starts_with: ${starts_with(name, "Cr")}")
+print("  pad_left:    '${pad_left("42", 6, "0")}'")
+print("  repeat:      ${repeat("ha", 3)}")
+
+# === Arrays & Functional Chains ===
+let nums = range(1, 11)
+let squares = map(nums, fn(x) -> x ** 2)
+let evens = filter(squares, fn(x) -> x % 2 == 0)
+print("\nEven squares: ${join(evens, ", ")}")
+print("  sum:     ${sum(evens)}")
+print("  any>50:  ${any(evens, fn(x) -> x > 50)}")
+print("  min/max: ${min_of(evens)} / ${max_of(evens)}")
+
+# === Compound Assignment ===
+let total = 0
+for x in [10, 20, 30] do
+  total += x
+end
+print("\nCompound assignment total: ${total}")
+
+# === Exponent & Spaceship ===
+print("2 ** 10 = ${2 ** 10}")
+print("3 <=> 5 = ${3 <=> 5}")
+
+# === Nil Coalescing ===
+let val = nil ?? "default"
+print("nil ?? default = ${val}")
+
+# === Function Composition ===
+let double = fn(x) -> x * 2
+let inc = fn(x) -> x + 1
+let transform = double >> inc
+print("(double >> inc)(5) = ${transform(5)}")
+
+# === Default Parameters ===
+let greet = fn(who, greeting = "Hello") -> "${greeting}, ${who}!"
+print(greet("World"))
+print(greet("World", "Howdy"))
+
+# === String & Array Repeat ===
+print("ha * 3 = ${"ha" * 3}")
+print("[1,2] * 2 = ${str([1, 2] * 2)}")
+
+# === Array Concat with + ===
+print("[1,2] + [3,4] = ${str([1, 2] + [3, 4])}")
+
+# === Pattern Matching ===
+let describe = fn(x) ->
+  match x
+    when 0 -> "zero"
+    when 1 -> "one"
+    when _ if x < 0 -> "negative"
+    when _ -> "other: ${x}"
+  end
+
+print("\nmatch 0: ${describe(0)}")
+print("match 1: ${describe(1)}")
+print("match -5: ${describe(-5)}")
+print("match 42: ${describe(42)}")
+
+# === Array Destructuring ===
+let [a, b, c] = [10, 20, 30]
+print("\nDestructured: a=${a}, b=${b}, c=${c}")
+
+let [head, ...tail] = [1, 2, 3, 4, 5]
+print("head=${head}, tail=${str(tail)}")
+
+# === For-in Destructuring ===
+let pairs = to_pairs({"x": 1, "y": 2, "z": 3})
+print("\nHash iteration:")
+for [k, v] in pairs do
+  print("  ${k} = ${v}")
+end
+
+# === Dot Method Syntax ===
+let arr = [3, 1, 4, 1, 5]
+print("\nDot syntax: ${str(arr.sort().reverse())}")
+print("  'hello'.upper() = ${"hello".upper()}")
+
+# === Unless / Until / Loop ===
+let x = 10
+unless x == 0 then
+  print("\nx is not zero")
+end
+
+let countdown = 3
+until countdown == 0 do
+  countdown -= 1
+end
+print("Countdown done, reached ${countdown}")
+
+# === Break & Continue ===
+let found = 0
+for i in range(1, 100) do
+  if i * i > 50 then do
+    found = i
+    break
+  end end
+end
+print("First n where n*n > 50: ${found}")
+
+let odd_sum = 0
+for i in range(1, 11) do
+  if i % 2 == 0 then continue end
+  odd_sum += i
+end
+print("Sum of odds 1-10: ${odd_sum}")
+
+# === Return Statement ===
+let find_first_over = fn(arr, threshold) -> do
+  for x in arr do
+    if x > threshold then return x end
+  end
+  nil
+end
+print("First over 10: ${find_first_over([3, 7, 12, 5], 10)}")
+
+# === Const Bindings ===
+const MAX_SIZE = 100
+print("\nConst MAX_SIZE = ${MAX_SIZE}")
+
+# === Try/Catch/Finally ===
+let cleanup_ran = false
+try
+  throw "test error"
+catch e ->
+  print("Caught: ${e}")
+finally ->
+  cleanup_ran = true
+end
+print("Finally ran: ${cleanup_ran}")
+
+# === Math Constants ===
+print("\nPI = ${round(PI, 6)}")
+print("E = ${round(E, 6)}")
+print("INFINITY > 999999: ${INFINITY > 999999}")
+
+# === Trig Functions ===
+print("sin(PI/2) = ${round(sin(PI / 2), 4)}")
+print("cos(0) = ${round(cos(0), 4)}")
+
+# === Advanced Array Builtins ===
+let data = [[1, 2], [3, 4], [5]]
+print("\nflatten: ${str(flatten(data))}")
+print("zip: ${str(zip([1,2,3], ["a","b","c"]))}")
+print("uniq: ${str(uniq([1,1,2,2,3,3]))}")
+print("chunk: ${str(chunk(range(1,10), 3))}")
+
+let people = [
+  {"name": "Alice", "age": 30},
+  {"name": "Bob", "age": 25},
+  {"name": "Carol", "age": 35},
+]
+let youngest = sort_by(people, fn(p) -> p["age"])
+print("Youngest: ${youngest[0]["name"]}")
+
+# === Postfix Conditionals ===
+print("postfix if") if true
+print("SHOULD NOT PRINT") unless true
+
+# === Range with Step ===
+print("\nEvens: ${str(range(0, 10, 2))}")
+print("Countdown: ${str(range(10, 0, -2))}")
+
+# === Hash Builtins ===
+let config = {"host": "localhost", "port": 3000, "debug": true}
+let prod = map_values(config, fn(v) -> if is(v, "boolean") then false else v end)
+print("\nProd config: ${str(prod)}")
+
+# === Inspect & Is ===
+print("\ninspect(42) = ${inspect(42)}")
+print("inspect(\"hi\") = ${inspect("hi")}")
+print("is(42, \"number\") = ${is(42, "number")}")
+print("is([], \"array\") = ${is([], "array")}")
+
+# === Multiline Collections ===
+let matrix = [
+  [1, 2, 3],
+  [4, 5, 6],
+  [7, 8, 9],
+]
+print("\nMatrix[1][1] = ${matrix[1][1]}")
+
+print("\nAll features demonstrated successfully!")

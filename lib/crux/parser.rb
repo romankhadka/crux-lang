@@ -351,7 +351,7 @@ module Crux
       consume(:interp_start, "Expected interpolation start")
       parts = []
       until check(:interp_end) || check(:eof)
-        if check(:string)
+        if check(:text_part)
           parts << AST::StringLit.new(value: advance.value)
         else
           parts << parse_expression

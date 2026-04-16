@@ -196,7 +196,7 @@ module Crux
         @tokens << Token.new(type: :interp_start, value: nil, line: start_line, column: start_col)
         parts.each do |part|
           if part.is_a?(String)
-            @tokens << Token.new(type: :string, value: part, line: start_line, column: start_col)
+            @tokens << Token.new(type: :text_part, value: part, line: start_line, column: start_col)
           else
             @tokens.concat(part)
           end
