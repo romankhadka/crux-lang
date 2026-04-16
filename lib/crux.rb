@@ -62,4 +62,29 @@ module Crux
 
   # Raised by the throw keyword in user code.
   class UserError < RuntimeError; end
+
+  # Internal signal for break statements.
+  class BreakSignal < StandardError
+    attr_reader :value
+    def initialize(value = nil)
+      @value = value
+      super("break")
+    end
+  end
+
+  # Internal signal for continue statements.
+  class ContinueSignal < StandardError
+    def initialize
+      super("continue")
+    end
+  end
+
+  # Internal signal for return statements.
+  class ReturnSignal < StandardError
+    attr_reader :value
+    def initialize(value = nil)
+      @value = value
+      super("return")
+    end
+  end
 end

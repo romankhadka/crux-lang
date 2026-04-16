@@ -1212,6 +1212,511 @@ class InterpreterTest < Minitest::Test
     assert_equal 11, eval_crux(code)
   end
 
+  # == Group A: Compound Assignment Operators (1-5) ==========================
+
+  def test_plus_equal
+    assert_equal 15, eval_crux("let x = 10\nx += 5\nx")
+  end
+
+  def test_minus_equal
+    assert_equal 5, eval_crux("let x = 10\nx -= 5\nx")
+  end
+
+  def test_star_equal
+    assert_equal 30, eval_crux("let x = 10\nx *= 3\nx")
+  end
+
+  def test_slash_equal
+    assert_equal 5, eval_crux("let x = 10\nx /= 2\nx")
+  end
+
+  def test_percent_equal
+    assert_equal 1, eval_crux("let x = 10\nx %= 3\nx")
+  end
+
+  def test_compound_assign_index
+    code = <<~CRUX
+      let arr = [10, 20, 30]
+      arr[1] += 5
+      arr[1]
+    CRUX
+    assert_equal 25, eval_crux(code)
+  end
+
+  # == Group B: Number Literal Formats (6-10) ===============================
+
+  def test_hex_literal
+    assert_equal 255, eval_crux("0xFF")
+    assert_equal 255, eval_crux("0XFF")
+  end
+
+  def test_binary_literal
+    assert_equal 10, eval_crux("0b1010")
+    assert_equal 10, eval_crux("0B1010")
+  end
+
+  def test_octal_literal
+    assert_equal 63, eval_crux("0o77")
+    assert_equal 63, eval_crux("0O77")
+  end
+
+  def test_scientific_notation
+    assert_in_delta 1500.0, eval_crux("1.5e3")
+    assert_in_delta 0.01, eval_crux("1e-2")
+    assert_in_delta 100.0, eval_crux("1E2")
+  end
+
+  def test_underscore_separator
+    assert_equal 1000000, eval_crux("1_000_000")
+    assert_equal 255, eval_crux("0xFF_FF".gsub("FF_FF", "FF"))
+  end
+
+  # == Group C: Control Flow (11-15) ========================================
+
+  def test_unless
+    assert_equal 42, eval_crux("unless false then 42 end")
+    assert_nil eval_crux("unless true then 42 end")
+  end
+
+  def test_until_loop
+    code = <<~CRUX
+      let x = 0
+      until x >= 5 do
+        x += 1
+      end
+      x
+    CRUX
+    assert_equal 5, eval_crux(code)
+  end
+
+  def test_loop_with_break
+    code = <<~CRUX
+      let x = 0
+      loop do
+        x += 1
+        if x == 5 then break end
+      end
+      x
+    CRUX
+    assert_equal 5, eval_crux(code)
+  end
+
+  def test_break_exits_while
+    code = <<~CRUX
+      let x = 0
+      while true do
+        x += 1
+        if x == 3 then break end
+      end
+      x
+    CRUX
+    assert_equal 3, eval_crux(code)
+  end
+
+  def test_break_with_value
+    code = <<~CRUX
+      let result = while true do
+        break 42
+      end
+      result
+    CRUX
+    assert_equal 42, eval_crux(code)
+  end
+
+  def test_continue_skips_iteration
+    code = <<~CRUX
+      let sum = 0
+      for i in range(1, 6) do
+        if i == 3 then continue end
+        sum += i
+      end
+      sum
+    CRUX
+    assert_equal 12, eval_crux(code) # 1+2+4+5 = 12
+  end
+
+  # == Group D: New Operators (16-20) =======================================
+
+  def test_nil_coalescing
+    assert_equal 42, eval_crux("nil ?? 42")
+    assert_equal 10, eval_crux("10 ?? 42")
+    assert_equal false, eval_crux("false ?? 42") # false is not nil
+  end
+
+  def test_exponent_operator
+    assert_equal 1024, eval_crux("2 ** 10")
+    assert_equal 8, eval_crux("2 ** 3")
+  end
+
+  def test_exponent_right_associative
+    assert_equal 512, eval_crux("2 ** 3 ** 2") # 2^(3^2) = 2^9 = 512
+  end
+
+  def test_string_repeat_operator
+    assert_equal "hahaha", eval_crux('"ha" * 3')
+  end
+
+  def test_array_repeat_operator
+    assert_equal [1, 2, 1, 2, 1, 2], eval_crux("[1, 2] * 3")
+  end
+
+  def test_spaceship_operator
+    assert_equal(-1, eval_crux("1 <=> 2"))
+    assert_equal 0, eval_crux("5 <=> 5")
+    assert_equal 1, eval_crux("3 <=> 1")
+  end
+
+  # == Group E: Function Composition (21-22) ================================
+
+  def test_compose_right
+    code = <<~CRUX
+      let double = fn(x) -> x * 2
+      let inc = fn(x) -> x + 1
+      let f = double >> inc
+      f(5)
+    CRUX
+    assert_equal 11, eval_crux(code) # inc(double(5)) = inc(10) = 11
+  end
+
+  def test_compose_left
+    code = <<~CRUX
+      let double = fn(x) -> x * 2
+      let inc = fn(x) -> x + 1
+      let f = double << inc
+      f(5)
+    CRUX
+    assert_equal 12, eval_crux(code) # double(inc(5)) = double(6) = 12
+  end
+
+  # == Group F: Function Enhancements (23-24) ===============================
+
+  def test_default_params
+    code = <<~CRUX
+      let greet = fn(name, greeting = "Hello") -> greeting + ", " + name
+      greet("world")
+    CRUX
+    assert_equal "Hello, world", eval_crux(code)
+  end
+
+  def test_default_params_override
+    code = <<~CRUX
+      let greet = fn(name, greeting = "Hello") -> greeting + ", " + name
+      greet("world", "Hi")
+    CRUX
+    assert_equal "Hi, world", eval_crux(code)
+  end
+
+  def test_return_statement
+    code = <<~CRUX
+      let f = fn(x) -> do
+        if x > 0 then return x * 2 end
+        return 0 - x
+      end
+      f(5)
+    CRUX
+    assert_equal 10, eval_crux(code)
+  end
+
+  def test_return_early_exit
+    code = <<~CRUX
+      let f = fn(x) -> do
+        return 42
+        99
+      end
+      f(0)
+    CRUX
+    assert_equal 42, eval_crux(code)
+  end
+
+  # == Group G: Pattern Matching (25-27) ====================================
+
+  def test_match_literal
+    code = <<~CRUX
+      let x = 2
+      match x
+        when 1 -> "one"
+        when 2 -> "two"
+        when 3 -> "three"
+      end
+    CRUX
+    assert_equal "two", eval_crux(code)
+  end
+
+  def test_match_wildcard
+    code = <<~CRUX
+      match 99
+        when 1 -> "one"
+        when _ -> "other"
+      end
+    CRUX
+    assert_equal "other", eval_crux(code)
+  end
+
+  def test_match_with_guard
+    code = <<~CRUX
+      let x = 15
+      match x
+        when n if n > 10 -> "big"
+        when _ -> "small"
+      end
+    CRUX
+    assert_equal "big", eval_crux(code)
+  end
+
+  def test_match_no_match_returns_nil
+    code = <<~CRUX
+      match 5
+        when 1 -> "one"
+        when 2 -> "two"
+      end
+    CRUX
+    assert_nil eval_crux(code)
+  end
+
+  def test_match_variable_binding
+    code = <<~CRUX
+      match 42
+        when val -> val * 2
+      end
+    CRUX
+    assert_equal 84, eval_crux(code)
+  end
+
+  # == Group H: Array Destructuring (28-30) =================================
+
+  def test_let_destructure
+    code = <<~CRUX
+      let [a, b, c] = [1, 2, 3]
+      a + b + c
+    CRUX
+    assert_equal 6, eval_crux(code)
+  end
+
+  def test_let_destructure_with_rest
+    code = <<~CRUX
+      let [head, ...tail] = [1, 2, 3, 4]
+      tail
+    CRUX
+    assert_equal [2, 3, 4], eval_crux(code)
+  end
+
+  def test_for_in_destructure
+    code = <<~CRUX
+      let h = {"a": 1, "b": 2}
+      let sum = 0
+      for [k, v] in to_pairs(h) do
+        sum += v
+      end
+      sum
+    CRUX
+    assert_equal 3, eval_crux(code)
+  end
+
+  # == Group I: String Enhancements (31-32) =================================
+
+  def test_carriage_return_escape
+    result = eval_crux('"hello\r"')
+    assert_equal "hello\r", result
+  end
+
+  def test_null_byte_escape
+    result = eval_crux('"hello\0"')
+    assert_equal "hello\0", result
+  end
+
+  # == Group J: Dot Method Syntax (33) ======================================
+
+  def test_dot_method_syntax
+    assert_equal 3, eval_crux("[1, 2, 3].len()")
+  end
+
+  def test_dot_method_chaining
+    code = <<~CRUX
+      let arr = [3, 1, 2]
+      arr.sort().reverse()
+    CRUX
+    assert_equal [3, 2, 1], eval_crux(code)
+  end
+
+  def test_dot_method_with_args
+    assert_equal "a-b-c", eval_crux('["a", "b", "c"].join("-")')
+  end
+
+  # == Group K: Postfix Conditionals (34-35) ================================
+
+  def test_postfix_if
+    assert_equal 42, eval_crux("42 if true")
+    assert_nil eval_crux("42 if false")
+  end
+
+  def test_postfix_unless
+    assert_equal 42, eval_crux("42 unless false")
+    assert_nil eval_crux("42 unless true")
+  end
+
+  # == Group L: Const Bindings (36) =========================================
+
+  def test_const_binding
+    assert_equal 42, eval_crux("const X = 42\nX")
+  end
+
+  def test_const_reassign_raises
+    assert_raises(Crux::RuntimeError) { eval_crux("const X = 42\nX = 99") }
+  end
+
+  # == Group M: Trailing Commas (37-40) =====================================
+
+  def test_trailing_comma_array
+    assert_equal [1, 2, 3], eval_crux("[1, 2, 3,]")
+  end
+
+  def test_trailing_comma_hash
+    result = eval_crux('{"a": 1, "b": 2,}')
+    assert_equal({"a" => 1, "b" => 2}, result)
+  end
+
+  def test_trailing_comma_fn_params
+    assert_equal 3, eval_crux("let f = fn(a, b,) -> a + b\nf(1, 2)")
+  end
+
+  def test_trailing_comma_fn_call
+    assert_equal 3, eval_crux("let f = fn(a, b) -> a + b\nf(1, 2,)")
+  end
+
+  # == Group N: Global Constants (41-44) ====================================
+
+  def test_pi_constant
+    assert_in_delta Math::PI, eval_crux("PI"), 0.0001
+  end
+
+  def test_e_constant
+    assert_in_delta Math::E, eval_crux("E"), 0.0001
+  end
+
+  def test_infinity_constant
+    assert_equal Float::INFINITY, eval_crux("INFINITY")
+  end
+
+  def test_nan_constant
+    result = eval_crux("NAN")
+    assert result.is_a?(Float)
+    assert result.nan?
+  end
+
+  # == Group O: Miscellaneous (45-50) =======================================
+
+  def test_range_with_step
+    assert_equal [0, 2, 4, 6, 8], eval_crux("range(0, 10, 2)")
+  end
+
+  def test_range_negative_step
+    assert_equal [10, 8, 6, 4, 2], eval_crux("range(10, 0, -2)")
+  end
+
+  def test_array_concat_operator
+    assert_equal [1, 2, 3, 4], eval_crux("[1, 2] + [3, 4]")
+  end
+
+  def test_finally_clause
+    code = <<~CRUX
+      let log = []
+      try
+        push(log, "body")
+        throw "oops"
+      catch e ->
+        push(log, "catch")
+      finally ->
+        push(log, "finally")
+      end
+      log
+    CRUX
+    assert_equal ["body", "catch", "finally"], eval_crux(code)
+  end
+
+  def test_finally_runs_on_success
+    code = <<~CRUX
+      let log = []
+      try
+        push(log, "body")
+      catch e ->
+        push(log, "catch")
+      finally ->
+        push(log, "finally")
+      end
+      log
+    CRUX
+    assert_equal ["body", "finally"], eval_crux(code)
+  end
+
+  def test_multiline_array
+    code = <<~CRUX
+      let arr = [
+        1,
+        2,
+        3
+      ]
+      arr
+    CRUX
+    assert_equal [1, 2, 3], eval_crux(code)
+  end
+
+  def test_multiline_hash
+    code = <<~CRUX
+      let h = {
+        "a": 1,
+        "b": 2,
+        "c": 3
+      }
+      len(h)
+    CRUX
+    assert_equal 3, eval_crux(code)
+  end
+
+  # == Integration tests for new features ===================================
+
+  def test_compound_assign_in_loop
+    code = <<~CRUX
+      let total = 0
+      for i in range(1, 11) do
+        total += i
+      end
+      total
+    CRUX
+    assert_equal 55, eval_crux(code)
+  end
+
+  def test_nil_coalescing_chain
+    code = <<~CRUX
+      let a = nil
+      let b = nil
+      let c = 42
+      a ?? b ?? c
+    CRUX
+    assert_equal 42, eval_crux(code)
+  end
+
+  def test_match_string_patterns
+    code = <<~CRUX
+      let classify = fn(status) -> match status
+        when "active" -> "running"
+        when "paused" -> "suspended"
+        when _ -> "unknown"
+      end
+      classify("paused")
+    CRUX
+    assert_equal "suspended", eval_crux(code)
+  end
+
+  def test_exponent_precedence
+    # ** should bind tighter than *
+    assert_equal 24, eval_crux("3 * 2 ** 3") # 3 * 8 = 24
+  end
+
+  def test_dot_method_no_parens
+    # dot method without parens should still work (no-arg call)
+    assert_equal [3, 2, 1], eval_crux("[1, 2, 3].sort().reverse()")
+  end
+
   private
 
   def eval_crux(source)

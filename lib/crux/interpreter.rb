@@ -2,41 +2,27 @@
 
 module Crux
   # A closure: a function body paired with the environment it was defined in.
-  #
-  # params - An Array of String parameter names.
-  # body   - An AST node.
-  # env    - The Environment captured at definition time.
-  Closure = Data.define(:params, :rest_param, :body, :env)
+  Closure = Data.define(:params, :rest_param, :defaults, :body, :env)
 
   # A built-in function implemented in Ruby.
-  #
-  # name  - A String name for error messages.
-  # arity - An Integer or Range of accepted argument counts.
-  # body  - A Proc that implements the function.
   Builtin = Data.define(:name, :arity, :body)
 
   # Tree-walk interpreter that evaluates an AST.
-  #
-  # The interpreter maintains a global Environment and evaluates
-  # nodes by pattern matching on their type. Functions create
-  # closures that capture their defining scope, enabling
-  # first-class functions and closures.
   class Interpreter
     attr_reader :globals
 
     def initialize(output: $stdout)
       @output = output
       @globals = Environment.new
+      @current_line = nil
       register_builtins
     end
 
     # Evaluate an AST node in the current environment.
-    #
-    # node - An AST node (typically AST::Program).
-    # env  - An Environment (default: globals).
-    #
-    # Returns the result of evaluation.
     def evaluate(node, env = @globals)
+      # Track line number for error messages
+      @current_line = node_line(node)
+
       case node
       in AST::Program[statements:]
         evaluate_program(statements, env)
@@ -70,6 +56,9 @@ module Crux
       in AST::LetBinding[name:, value:]
         env.define(name, evaluate(value, env))
 
+      in AST::ConstBinding[name:, value:]
+        env.define_const(name, evaluate(value, env))
+
       in AST::Assignment[name:, value:]
         env.assign(name, evaluate(value, env))
 
@@ -93,39 +82,23 @@ module Crux
         end
 
       in AST::While[condition:, body:]
-        result = nil
-        result = evaluate(body, env) while truthy?(evaluate(condition, env))
-        result
+        evaluate_while(condition, body, env)
 
-      in AST::TryCatch[body:, error_name:, handler:]
-        begin
-          evaluate(body, env)
-        rescue Crux::RuntimeError, Crux::UserError => e
-          handler_env = Environment.new(parent: env)
-          handler_env.define(error_name, e.message)
-          evaluate(handler, handler_env)
-        end
+      in AST::TryCatch[body:, error_name:, handler:, finally_body:]
+        evaluate_try_catch(body, error_name, handler, finally_body, env)
 
       in AST::Throw[message:]
         msg = evaluate(message, env)
         raise Crux::UserError, stringify(msg)
 
       in AST::ForIn[name:, iterable:, body:]
-        collection = evaluate(iterable, env)
-        raise Crux::RuntimeError, "for-in requires an array, got #{type_name(collection)}" unless collection.is_a?(Array)
-        result = nil
-        collection.each do |item|
-          loop_env = Environment.new(parent: env)
-          loop_env.define(name, item)
-          result = evaluate(body, loop_env)
-        end
-        result
+        evaluate_for_in(name, iterable, body, env)
 
       in AST::Block[statements:]
         evaluate_block(statements, env)
 
-      in AST::Function[params:, rest_param:, body:]
-        Closure.new(params: params, rest_param: rest_param, body: body, env: env)
+      in AST::Function[params:, rest_param:, defaults:, body:]
+        Closure.new(params: params, rest_param: rest_param, defaults: defaults, body: body, env: env)
 
       in AST::Call[callee:, arguments:]
         func = evaluate(callee, env)
@@ -138,16 +111,30 @@ module Crux
         args = [piped] + arguments.map { |a| evaluate(a, env) }
         call_function(func, args)
 
+      in AST::Break[value:]
+        val = value ? evaluate(value, env) : nil
+        raise BreakSignal.new(val)
+
+      in AST::Continue
+        raise ContinueSignal.new
+
+      in AST::Return[value:]
+        val = value ? evaluate(value, env) : nil
+        raise ReturnSignal.new(val)
+
+      in AST::Match[subject:, arms:]
+        evaluate_match(subject, arms, env)
+
+      in AST::DestructureArray[names:, rest_name:, value:]
+        evaluate_destructure_array(names, rest_name, value, env)
+
       else
         raise Crux::RuntimeError, "Unknown AST node: #{node.class}"
       end
+    rescue Crux::RuntimeError => e
+      raise # re-raise as-is (already has context or is being handled)
     end
 
-    # Convert a Crux value to its string representation.
-    #
-    # value - Any Crux value.
-    #
-    # Returns a String.
     def stringify(value)
       case value
       when nil then "nil"
@@ -168,6 +155,11 @@ module Crux
 
     private
 
+    def node_line(node)
+      # AST nodes don't store line info, but we track it for runtime errors
+      @current_line
+    end
+
     def evaluate_program(statements, env)
       result = nil
       statements.each { |stmt| result = evaluate(stmt, env) }
@@ -179,6 +171,110 @@ module Crux
       result = nil
       statements.each { |stmt| result = evaluate(stmt, block_env) }
       result
+    end
+
+    def evaluate_while(condition, body, env)
+      result = nil
+      while truthy?(evaluate(condition, env))
+        begin
+          result = evaluate(body, env)
+        rescue BreakSignal => e
+          return e.value
+        rescue ContinueSignal
+          next
+        end
+      end
+      result
+    end
+
+    def evaluate_for_in(name, iterable_node, body, env)
+      collection = evaluate(iterable_node, env)
+      raise Crux::RuntimeError, "for-in requires an array, got #{type_name(collection)}" unless collection.is_a?(Array)
+      result = nil
+      collection.each do |item|
+        loop_env = Environment.new(parent: env)
+        if name.is_a?(Array)
+          # Destructuring: for [k, v] in pairs
+          raise Crux::RuntimeError, "Destructuring requires array elements, got #{type_name(item)}" unless item.is_a?(Array)
+          name.each_with_index do |n, i|
+            loop_env.define(n, item[i])
+          end
+        else
+          loop_env.define(name, item)
+        end
+        begin
+          result = evaluate(body, loop_env)
+        rescue BreakSignal => e
+          return e.value
+        rescue ContinueSignal
+          next
+        end
+      end
+      result
+    end
+
+    def evaluate_try_catch(body_node, error_name, handler, finally_body, env)
+      result = begin
+        evaluate(body_node, env)
+      rescue Crux::RuntimeError, Crux::UserError => e
+        handler_env = Environment.new(parent: env)
+        handler_env.define(error_name, e.message)
+        evaluate(handler, handler_env)
+      end
+      evaluate(finally_body, env) if finally_body
+      result
+    end
+
+    def evaluate_match(subject_node, arms, env)
+      subject = evaluate(subject_node, env)
+
+      arms.each do |arm|
+        pattern = arm.pattern
+
+        # Wildcard: identifier "_"
+        if pattern.is_a?(AST::Identifier) && pattern.name == "_"
+          if arm.guard
+            next unless truthy?(evaluate(arm.guard, env))
+          end
+          return evaluate(arm.body, env)
+        end
+
+        # Variable binding: identifier (non-wildcard)
+        if pattern.is_a?(AST::Identifier)
+          match_env = Environment.new(parent: env)
+          match_env.define(pattern.name, subject)
+          if arm.guard
+            next unless truthy?(evaluate(arm.guard, match_env))
+          end
+          return evaluate(arm.body, match_env)
+        end
+
+        # Literal pattern: compare with ==
+        pattern_val = evaluate(pattern, env)
+        if subject == pattern_val
+          if arm.guard
+            next unless truthy?(evaluate(arm.guard, env))
+          end
+          return evaluate(arm.body, env)
+        end
+      end
+
+      nil # no match
+    end
+
+    def evaluate_destructure_array(names, rest_name, value_node, env)
+      val = evaluate(value_node, env)
+      raise Crux::RuntimeError, "Destructuring requires an array, got #{type_name(val)}" unless val.is_a?(Array)
+
+      names.each_with_index do |name, i|
+        env.define(name, val[i])
+      end
+
+      if rest_name
+        env.define(rest_name, val[names.length..] || [])
+      end
+
+      val
     end
 
     def evaluate_index_access(object_node, index_node, env)
@@ -243,6 +339,42 @@ module Crux
         return evaluate(right_node, env)
       end
 
+      # Nil coalescing (short-circuit)
+      if operator == :question_question
+        left = evaluate(left_node, env)
+        return left unless left.nil?
+        return evaluate(right_node, env)
+      end
+
+      # Function composition
+      if operator == :compose_right
+        f = evaluate(left_node, env)
+        g = evaluate(right_node, env)
+        return Closure.new(
+          params: ["__x__"],
+          rest_param: nil,
+          defaults: {},
+          body: nil,
+          env: env,
+        ).then do
+          Builtin.new(
+            name: "compose_right",
+            arity: 1,
+            body: ->(x) { call_function(g, [call_function(f, [x])]) },
+          )
+        end
+      end
+
+      if operator == :compose_left
+        f = evaluate(left_node, env)
+        g = evaluate(right_node, env)
+        return Builtin.new(
+          name: "compose_left",
+          arity: 1,
+          body: ->(x) { call_function(f, [call_function(g, [x])]) },
+        )
+      end
+
       left = evaluate(left_node, env)
       right = evaluate(right_node, env)
 
@@ -252,6 +384,8 @@ module Crux
           left + right
         elsif left.is_a?(Numeric) && right.is_a?(Numeric)
           left + right
+        elsif left.is_a?(Array) && right.is_a?(Array)
+          left + right
         else
           raise Crux::RuntimeError, "Cannot add #{type_name(left)} and #{type_name(right)}"
         end
@@ -259,8 +393,14 @@ module Crux
         check_numbers(left, right, "-")
         left - right
       when :star
-        check_numbers(left, right, "*")
-        left * right
+        if left.is_a?(String) && right.is_a?(Integer)
+          left * right
+        elsif left.is_a?(Array) && right.is_a?(Integer)
+          left * right
+        else
+          check_numbers(left, right, "*")
+          left * right
+        end
       when :slash
         check_numbers(left, right, "/")
         raise Crux::RuntimeError, "Division by zero" if right.zero?
@@ -269,6 +409,12 @@ module Crux
         check_numbers(left, right, "%")
         raise Crux::RuntimeError, "Modulo by zero" if right.zero?
         left % right
+      when :star_star
+        check_numbers(left, right, "**")
+        left ** right
+      when :spaceship
+        check_comparable(left, right, "<=>")
+        left <=> right
       when :equal_equal then left == right
       when :bang_equal then left != right
       when :less then check_comparable(left, right, "<"); left < right
@@ -280,19 +426,38 @@ module Crux
 
     def call_function(func, args)
       case func
-      in Closure[params:, rest_param:, body:, env:]
+      in Closure[params:, rest_param:, defaults:, body:, env:]
         if rest_param
           if args.length < params.length
             raise Crux::RuntimeError, "Expected at least #{params.length} arguments, got #{args.length}"
           end
-        elsif args.length != params.length
-          raise Crux::RuntimeError, "Expected #{params.length} arguments, got #{args.length}"
+        else
+          # With defaults, min arity is params without defaults
+          required = params.reject { |p| defaults&.key?(p) }
+          if args.length < required.length
+            raise Crux::RuntimeError, "Expected #{params.length} arguments, got #{args.length}"
+          elsif args.length > params.length
+            raise Crux::RuntimeError, "Expected #{params.length} arguments, got #{args.length}"
+          end
         end
 
         call_env = Environment.new(parent: env)
-        params.each_with_index { |name, i| call_env.define(name, args[i]) }
+        params.each_with_index do |name, i|
+          if i < args.length
+            call_env.define(name, args[i])
+          elsif defaults&.key?(name)
+            call_env.define(name, evaluate(defaults[name], call_env))
+          else
+            call_env.define(name, nil)
+          end
+        end
         call_env.define(rest_param, args[params.length..]) if rest_param
-        evaluate(body, call_env)
+
+        begin
+          evaluate(body, call_env)
+        rescue ReturnSignal => e
+          e.value
+        end
 
       in Builtin[name:, arity:, body:]
         valid_arity = arity.is_a?(Range) ? arity.cover?(args.length) : args.length == arity
@@ -343,6 +508,12 @@ module Crux
     # -- Built-in functions ------------------------------------------------
 
     def register_builtins
+      # Global constants
+      @globals.define("PI", Math::PI)
+      @globals.define("E", Math::E)
+      @globals.define("INFINITY", Float::INFINITY)
+      @globals.define("NAN", Float::NAN)
+
       @globals.define("print", Builtin.new(
         name: "print",
         arity: 1,
@@ -487,8 +658,6 @@ module Crux
           end
         },
       ))
-
-      # -- New string builtins -----------------------------------------------
 
       @globals.define("starts_with", Builtin.new(
         name: "starts_with",
@@ -685,10 +854,27 @@ module Crux
 
       @globals.define("range", Builtin.new(
         name: "range",
-        arity: 2,
-        body: ->(start, stop) {
+        arity: (2..3),
+        body: ->(start, stop, step = 1) {
           raise Crux::RuntimeError, "range() expects numbers" unless start.is_a?(Integer) && stop.is_a?(Integer)
-          (start...stop).to_a
+          raise Crux::RuntimeError, "range() step must be a non-zero integer" if step.is_a?(Integer) && step == 0
+          if step > 0
+            result = []
+            i = start
+            while i < stop
+              result << i
+              i += step
+            end
+            result
+          else
+            result = []
+            i = start
+            while i > stop
+              result << i
+              i += step
+            end
+            result
+          end
         },
       ))
 
@@ -709,8 +895,6 @@ module Crux
           arr.empty?
         },
       ))
-
-      # -- New array builtins ------------------------------------------------
 
       @globals.define("flatten", Builtin.new(
         name: "flatten",
@@ -926,8 +1110,6 @@ module Crux
         },
       ))
 
-      # -- New hash builtins -------------------------------------------------
-
       @globals.define("delete_key", Builtin.new(
         name: "delete_key",
         arity: 2,
@@ -1075,8 +1257,6 @@ module Crux
         arity: 0,
         body: -> { rand },
       ))
-
-      # -- New math builtins -------------------------------------------------
 
       @globals.define("sin", Builtin.new(
         name: "sin",

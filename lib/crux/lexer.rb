@@ -4,7 +4,7 @@ module Crux
   # Transforms Crux source code into a flat array of Tokens.
   #
   # The lexer is single-pass and greedy. It handles:
-  # - Numbers (integer and float)
+  # - Numbers (integer and float, hex, binary, octal, scientific, underscores)
   # - Strings (double-quoted, with escape sequences)
   # - Identifiers and keywords
   # - Operators and punctuation
@@ -63,13 +63,15 @@ module Crux
       when ">"
         read_greater
       when "+"
-        emit(:plus, "+")
+        read_plus
       when "*"
-        emit(:star, "*")
+        read_star
       when "/"
-        emit(:slash, "/")
+        read_slash
       when "%"
-        emit(:percent, "%")
+        read_percent
+      when "?"
+        read_question
       when "("
         emit(:lparen, "(")
       when ")"
@@ -90,7 +92,7 @@ module Crux
           advance; advance; advance
           @tokens << Token.new(type: :dotdotdot, value: "...", line: @line, column: start_col)
         else
-          raise Crux::SyntaxError, "Unexpected character '.' at line #{@line}, column #{@column}"
+          emit(:dot, ".")
         end
       when ","
         emit(:comma, ",")
@@ -151,6 +153,8 @@ module Crux
                      when "\\" then "\\"
                      when '"' then '"'
                      when "$" then "$"
+                     when "r" then "\r"
+                     when "0" then "\0"
                      else
                        raise Crux::SyntaxError, "Invalid escape '\\#{@source[@pos]}' at line #{@line}"
                      end
@@ -205,12 +209,60 @@ module Crux
 
     def read_number
       start_col = @column
+
+      # Check for 0x, 0b, 0o prefixes
+      if @source[@pos] == "0" && @pos + 1 < @source.length
+        next_char = @source[@pos + 1]
+        case next_char
+        when "x", "X"
+          advance; advance # skip 0x
+          hex = +""
+          hex << advance while @pos < @source.length && @source[@pos] =~ /[0-9a-fA-F_]/
+          hex.delete!("_")
+          raise Crux::SyntaxError, "Invalid hex literal at line #{@line}" if hex.empty?
+          @tokens << Token.new(type: :number, value: hex.to_i(16), line: @line, column: start_col)
+          return
+        when "b", "B"
+          advance; advance # skip 0b
+          bin = +""
+          bin << advance while @pos < @source.length && @source[@pos] =~ /[01_]/
+          bin.delete!("_")
+          raise Crux::SyntaxError, "Invalid binary literal at line #{@line}" if bin.empty?
+          @tokens << Token.new(type: :number, value: bin.to_i(2), line: @line, column: start_col)
+          return
+        when "o", "O"
+          advance; advance # skip 0o
+          oct = +""
+          oct << advance while @pos < @source.length && @source[@pos] =~ /[0-7_]/
+          oct.delete!("_")
+          raise Crux::SyntaxError, "Invalid octal literal at line #{@line}" if oct.empty?
+          @tokens << Token.new(type: :number, value: oct.to_i(8), line: @line, column: start_col)
+          return
+        end
+      end
+
       number = +""
-      number << advance while @pos < @source.length && @source[@pos] =~ /[0-9]/
+      number << advance while @pos < @source.length && @source[@pos] =~ /[0-9_]/
+
+      is_float = false
 
       if @pos < @source.length && @source[@pos] == "." && @pos + 1 < @source.length && @source[@pos + 1] =~ /[0-9]/
+        is_float = true
         number << advance # the dot
-        number << advance while @pos < @source.length && @source[@pos] =~ /[0-9]/
+        number << advance while @pos < @source.length && @source[@pos] =~ /[0-9_]/
+      end
+
+      # Scientific notation
+      if @pos < @source.length && @source[@pos] =~ /[eE]/
+        is_float = true
+        number << advance # the e/E
+        number << advance if @pos < @source.length && @source[@pos] =~ /[+\-]/
+        number << advance while @pos < @source.length && @source[@pos] =~ /[0-9_]/
+      end
+
+      number.delete!("_")
+
+      if is_float
         @tokens << Token.new(type: :number, value: number.to_f, line: @line, column: start_col)
       else
         @tokens << Token.new(type: :number, value: number.to_i, line: @line, column: start_col)
@@ -250,6 +302,9 @@ module Crux
       if @pos < @source.length && @source[@pos] == ">"
         advance
         @tokens << Token.new(type: :arrow, value: "->", line: @line, column: start_col)
+      elsif @pos < @source.length && @source[@pos] == "="
+        advance
+        @tokens << Token.new(type: :minus_equal, value: "-=", line: @line, column: start_col)
       else
         @tokens << Token.new(type: :minus, value: "-", line: @line, column: start_col)
       end
@@ -282,7 +337,15 @@ module Crux
       advance
       if @pos < @source.length && @source[@pos] == "="
         advance
-        @tokens << Token.new(type: :less_equal, value: "<=", line: @line, column: start_col)
+        if @pos < @source.length && @source[@pos] == ">"
+          advance
+          @tokens << Token.new(type: :spaceship, value: "<=>", line: @line, column: start_col)
+        else
+          @tokens << Token.new(type: :less_equal, value: "<=", line: @line, column: start_col)
+        end
+      elsif @pos < @source.length && @source[@pos] == "<"
+        advance
+        @tokens << Token.new(type: :compose_left, value: "<<", line: @line, column: start_col)
       else
         @tokens << Token.new(type: :less, value: "<", line: @line, column: start_col)
       end
@@ -294,8 +357,69 @@ module Crux
       if @pos < @source.length && @source[@pos] == "="
         advance
         @tokens << Token.new(type: :greater_equal, value: ">=", line: @line, column: start_col)
+      elsif @pos < @source.length && @source[@pos] == ">"
+        advance
+        @tokens << Token.new(type: :compose_right, value: ">>", line: @line, column: start_col)
       else
         @tokens << Token.new(type: :greater, value: ">", line: @line, column: start_col)
+      end
+    end
+
+    def read_plus
+      start_col = @column
+      advance
+      if @pos < @source.length && @source[@pos] == "="
+        advance
+        @tokens << Token.new(type: :plus_equal, value: "+=", line: @line, column: start_col)
+      else
+        @tokens << Token.new(type: :plus, value: "+", line: @line, column: start_col)
+      end
+    end
+
+    def read_star
+      start_col = @column
+      advance
+      if @pos < @source.length && @source[@pos] == "*"
+        advance
+        @tokens << Token.new(type: :star_star, value: "**", line: @line, column: start_col)
+      elsif @pos < @source.length && @source[@pos] == "="
+        advance
+        @tokens << Token.new(type: :star_equal, value: "*=", line: @line, column: start_col)
+      else
+        @tokens << Token.new(type: :star, value: "*", line: @line, column: start_col)
+      end
+    end
+
+    def read_slash
+      start_col = @column
+      advance
+      if @pos < @source.length && @source[@pos] == "="
+        advance
+        @tokens << Token.new(type: :slash_equal, value: "/=", line: @line, column: start_col)
+      else
+        @tokens << Token.new(type: :slash, value: "/", line: @line, column: start_col)
+      end
+    end
+
+    def read_percent
+      start_col = @column
+      advance
+      if @pos < @source.length && @source[@pos] == "="
+        advance
+        @tokens << Token.new(type: :percent_equal, value: "%=", line: @line, column: start_col)
+      else
+        @tokens << Token.new(type: :percent, value: "%", line: @line, column: start_col)
+      end
+    end
+
+    def read_question
+      start_col = @column
+      advance
+      if @pos < @source.length && @source[@pos] == "?"
+        advance
+        @tokens << Token.new(type: :question_question, value: "??", line: @line, column: start_col)
+      else
+        raise Crux::SyntaxError, "Unexpected character '?' at line #{@line}, column #{start_col}"
       end
     end
 

@@ -88,8 +88,9 @@ module Crux
     #
     # params     - An Array of String parameter names.
     # rest_param - An optional String name for the rest parameter, or nil.
+    # defaults   - A Hash of { param_name => AST node } for default values.
     # body       - An AST node (the function body).
-    Function = Data.define(:params, :rest_param, :body)
+    Function = Data.define(:params, :rest_param, :defaults, :body)
 
     # A let binding: let name = value.
     #
@@ -130,7 +131,8 @@ module Crux
     # body         - An AST node (the expression to try).
     # error_name   - A String variable name to bind the error message.
     # handler      - An AST node (the handler expression).
-    TryCatch = Data.define(:body, :error_name, :handler)
+    # finally_body - An optional AST node for the finally clause.
+    TryCatch = Data.define(:body, :error_name, :handler, :finally_body)
 
     # A throw expression: throw expr.
     #
@@ -144,6 +146,30 @@ module Crux
     Block = Data.define(:statements)
 
     # -- Program -----------------------------------------------------------
+
+    # A break statement: break or break expr.
+    Break = Data.define(:value)
+
+    # A continue statement.
+    Continue = Data.define
+
+    # A return statement: return or return expr.
+    Return = Data.define(:value)
+
+    # A const binding: const name = value.
+    ConstBinding = Data.define(:name, :value)
+
+    # A match expression: match subject when pattern -> body end.
+    #
+    # subject - An AST node (the value to match).
+    # arms    - An Array of MatchArm.
+    Match = Data.define(:subject, :arms)
+
+    # A single match arm: when pattern [if guard] -> body.
+    MatchArm = Data.define(:pattern, :guard, :body)
+
+    # Array destructuring: let [a, b, ...rest] = expr.
+    DestructureArray = Data.define(:names, :rest_name, :value)
 
     # The top-level program node.
     #
