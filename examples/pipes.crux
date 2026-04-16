@@ -1,0 +1,27 @@
+# Pipes — the |> operator for functional composition
+#
+# x |> f          becomes  f(x)
+# x |> f(y, z)    becomes  f(x, y, z)
+
+let double = fn(x) -> x * 2
+let square = fn(x) -> x * x
+let add = fn(a, b) -> a + b
+let negate = fn(x) -> -x
+
+# Chain transformations left-to-right
+# This reads as: "take 5, double it, then square it"
+let result = 5 |> double |> square
+println("5 |> double |> square = " + str(result))
+
+# Pipes with extra arguments
+let result2 = 10 |> add(5)
+println("10 |> add(5) = " + str(result2))
+
+# Build a pipeline from scratch
+let transform = fn(x) ->
+  x |> double |> add(3) |> square
+
+println("transform(4) = " + str(transform(4)))
+
+# Pipe directly to print
+"Hello from a pipe!" |> print

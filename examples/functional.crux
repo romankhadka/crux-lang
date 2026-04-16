@@ -1,0 +1,45 @@
+# Functional programming patterns in Crux
+
+# Compose two functions into one
+let compose = fn(f, g) -> fn(x) -> f(g(x))
+
+# Apply a function n times
+let apply_n = fn(f, n, x) ->
+  if n <= 0 then x
+  else apply_n(f, n - 1, f(x)) end
+
+let inc = fn(x) -> x + 1
+let double = fn(x) -> x * 2
+
+# compose creates a new function from two others
+let double_then_inc = compose(inc, double)
+println("double_then_inc(5) = " + str(double_then_inc(5)))
+
+# apply_n applies a function repeatedly
+let result = apply_n(double, 4, 1)
+println("double applied 4 times to 1 = " + str(result))
+
+# Y-combinator style: mutual recursion through closures
+let is_even = fn(n) ->
+  if n == 0 then true
+  else is_odd(n - 1) end
+
+let is_odd = fn(n) ->
+  if n == 0 then false
+  else is_even(n - 1) end
+
+println("is_even(10) = " + str(is_even(10)))
+println("is_odd(7) = " + str(is_odd(7)))
+
+# Accumulator pattern — building results with closures
+let sum_to = fn(n) -> do
+  let total = 0
+  let i = 1
+  while i <= n do
+    total = total + i
+    i = i + 1
+  end
+  total
+end
+
+println("sum 1..100 = " + str(sum_to(100)))

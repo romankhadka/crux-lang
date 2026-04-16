@@ -1,0 +1,26 @@
+# Closures — functions that remember their environment
+
+# A counter factory: each call returns a new, independent counter
+let make_counter = fn(start) -> do
+  let count = start
+  fn() -> do
+    count = count + 1
+    count
+  end
+end
+
+let a = make_counter(0)
+let b = make_counter(100)
+
+# Each counter has its own private state
+println("Counter A: " + str(a()) + ", " + str(a()) + ", " + str(a()))
+println("Counter B: " + str(b()) + ", " + str(b()) + ", " + str(b()))
+
+# Higher-order: a function that creates multipliers
+let multiplier = fn(factor) -> fn(x) -> x * factor
+
+let triple = multiplier(3)
+let times_ten = multiplier(10)
+
+println("triple(7) = " + str(triple(7)))
+println("times_ten(7) = " + str(times_ten(7)))

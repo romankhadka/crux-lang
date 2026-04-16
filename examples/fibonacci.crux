@@ -1,0 +1,12 @@
+# Fibonacci sequence — classic recursion
+
+let fib = fn(n) ->
+  if n <= 1 then n
+  else fib(n - 1) + fib(n - 2) end
+
+# Print the first 15 Fibonacci numbers
+let i = 0
+while i <= 14 do
+  println(str(i) + ": " + str(fib(i)))
+  i = i + 1
+end

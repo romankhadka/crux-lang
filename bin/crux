@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../lib/crux"
+
+case ARGV.length
+when 0
+  puts "Crux #{Crux::VERSION} — A tiny language with closures and pipes"
+  puts "Type expressions to evaluate. 'exit' to quit.\n\n"
+  Crux.repl
+when 1
+  file = ARGV[0]
+  unless File.exist?(file)
+    $stderr.puts "crux: file not found — #{file}"
+    exit 1
+  end
+
+  begin
+    Crux.run(File.read(file))
+  rescue Crux::SyntaxError, Crux::RuntimeError => e
+    $stderr.puts "crux: #{e.message}"
+    exit 1
+  end
+else
+  $stderr.puts "Usage: crux [file.crux]"
+  exit 1
+end

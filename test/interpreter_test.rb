@@ -1,0 +1,403 @@
+# frozen_string_literal: true
+
+require_relative "test_helper"
+
+class InterpreterTest < Minitest::Test
+  # -- Literals ------------------------------------------------------------
+
+  def test_integer
+    assert_equal 42, eval_crux("42")
+  end
+
+  def test_float
+    assert_equal 3.14, eval_crux("3.14")
+  end
+
+  def test_string
+    assert_equal "hello", eval_crux('"hello"')
+  end
+
+  def test_boolean_true
+    assert_equal true, eval_crux("true")
+  end
+
+  def test_boolean_false
+    assert_equal false, eval_crux("false")
+  end
+
+  def test_nil
+    assert_nil eval_crux("nil")
+  end
+
+  # -- Arithmetic ----------------------------------------------------------
+
+  def test_addition
+    assert_equal 7, eval_crux("3 + 4")
+  end
+
+  def test_subtraction
+    assert_equal 1, eval_crux("5 - 4")
+  end
+
+  def test_multiplication
+    assert_equal 12, eval_crux("3 * 4")
+  end
+
+  def test_integer_division
+    assert_equal 3, eval_crux("7 / 2")
+  end
+
+  def test_float_division
+    assert_equal 3.5, eval_crux("7.0 / 2")
+  end
+
+  def test_modulo
+    assert_equal 1, eval_crux("7 % 3")
+  end
+
+  def test_unary_minus
+    assert_equal(-5, eval_crux("-5"))
+  end
+
+  def test_operator_precedence
+    assert_equal 11, eval_crux("1 + 2 * 5")
+  end
+
+  def test_grouping
+    assert_equal 15, eval_crux("(1 + 2) * 5")
+  end
+
+  def test_string_concatenation
+    assert_equal "hello world", eval_crux('"hello " + "world"')
+  end
+
+  def test_division_by_zero
+    assert_raises(Crux::RuntimeError) { eval_crux("1 / 0") }
+  end
+
+  def test_type_mismatch_arithmetic
+    assert_raises(Crux::RuntimeError) { eval_crux('"a" + 1') }
+  end
+
+  # -- Comparison ----------------------------------------------------------
+
+  def test_equality
+    assert_equal true, eval_crux("1 == 1")
+    assert_equal false, eval_crux("1 == 2")
+  end
+
+  def test_inequality
+    assert_equal true, eval_crux("1 != 2")
+    assert_equal false, eval_crux("1 != 1")
+  end
+
+  def test_less_than
+    assert_equal true, eval_crux("1 < 2")
+    assert_equal false, eval_crux("2 < 1")
+  end
+
+  def test_greater_than
+    assert_equal true, eval_crux("2 > 1")
+    assert_equal false, eval_crux("1 > 2")
+  end
+
+  def test_less_equal
+    assert_equal true, eval_crux("1 <= 1")
+    assert_equal true, eval_crux("1 <= 2")
+  end
+
+  def test_greater_equal
+    assert_equal true, eval_crux("2 >= 2")
+    assert_equal true, eval_crux("3 >= 2")
+  end
+
+  def test_string_comparison
+    assert_equal true, eval_crux('"a" < "b"')
+  end
+
+  # -- Logic ---------------------------------------------------------------
+
+  def test_and_short_circuits
+    assert_equal false, eval_crux("false and true")
+    assert_equal 2, eval_crux("1 and 2")
+  end
+
+  def test_or_short_circuits
+    assert_equal 1, eval_crux("1 or 2")
+    assert_equal 2, eval_crux("false or 2")
+  end
+
+  def test_not
+    assert_equal true, eval_crux("not false")
+    assert_equal false, eval_crux("not true")
+    assert_equal false, eval_crux("not 1")
+  end
+
+  # -- Variables -----------------------------------------------------------
+
+  def test_let_and_reference
+    assert_equal 42, eval_crux("let x = 42\nx")
+  end
+
+  def test_assignment
+    assert_equal 10, eval_crux("let x = 5\nx = 10\nx")
+  end
+
+  def test_undefined_variable
+    assert_raises(Crux::RuntimeError) { eval_crux("x") }
+  end
+
+  def test_assign_undefined_variable
+    assert_raises(Crux::RuntimeError) { eval_crux("x = 5") }
+  end
+
+  # -- Functions -----------------------------------------------------------
+
+  def test_simple_function
+    assert_equal 7, eval_crux("let add = fn(a, b) -> a + b\nadd(3, 4)")
+  end
+
+  def test_zero_arity_function
+    assert_equal 42, eval_crux("let f = fn() -> 42\nf()")
+  end
+
+  def test_wrong_arity
+    assert_raises(Crux::RuntimeError) { eval_crux("let f = fn(x) -> x\nf(1, 2)") }
+  end
+
+  def test_higher_order_function
+    code = <<~CRUX
+      let apply = fn(f, x) -> f(x)
+      let double = fn(x) -> x * 2
+      apply(double, 5)
+    CRUX
+    assert_equal 10, eval_crux(code)
+  end
+
+  def test_immediately_invoked_function
+    assert_equal 42, eval_crux("(fn() -> 42)()")
+  end
+
+  # -- Closures ------------------------------------------------------------
+
+  def test_closure_captures_environment
+    code = <<~CRUX
+      let make_adder = fn(n) -> fn(x) -> x + n
+      let add5 = make_adder(5)
+      add5(10)
+    CRUX
+    assert_equal 15, eval_crux(code)
+  end
+
+  def test_closure_mutates_captured_variable
+    code = <<~CRUX
+      let counter = fn() -> do
+        let count = 0
+        fn() -> do
+          count = count + 1
+          count
+        end
+      end
+      let c = counter()
+      c()
+      c()
+      c()
+    CRUX
+    assert_equal 3, eval_crux(code)
+  end
+
+  # -- Recursion -----------------------------------------------------------
+
+  def test_recursion_fibonacci
+    code = <<~CRUX
+      let fib = fn(n) ->
+        if n <= 1 then n
+        else fib(n - 1) + fib(n - 2) end
+
+      fib(10)
+    CRUX
+    assert_equal 55, eval_crux(code)
+  end
+
+  def test_recursion_factorial
+    code = <<~CRUX
+      let fact = fn(n) ->
+        if n <= 1 then 1
+        else n * fact(n - 1) end
+
+      fact(6)
+    CRUX
+    assert_equal 720, eval_crux(code)
+  end
+
+  # -- Control flow --------------------------------------------------------
+
+  def test_if_then
+    assert_equal 1, eval_crux("if true then 1 end")
+  end
+
+  def test_if_then_else
+    assert_equal 2, eval_crux("if false then 1 else 2 end")
+  end
+
+  def test_if_nil_when_false_and_no_else
+    assert_nil eval_crux("if false then 1 end")
+  end
+
+  def test_while_loop
+    code = <<~CRUX
+      let sum = 0
+      let i = 1
+      while i <= 10 do
+        sum = sum + i
+        i = i + 1
+      end
+      sum
+    CRUX
+    assert_equal 55, eval_crux(code)
+  end
+
+  # -- Blocks --------------------------------------------------------------
+
+  def test_block_returns_last_expression
+    assert_equal 3, eval_crux("do\n  1\n  2\n  3\nend")
+  end
+
+  def test_block_scoping
+    code = <<~CRUX
+      let x = 1
+      do
+        let y = 2
+        x + y
+      end
+    CRUX
+    assert_equal 3, eval_crux(code)
+  end
+
+  def test_block_inner_variable_not_visible_outside
+    code = <<~CRUX
+      do
+        let secret = 42
+      end
+      secret
+    CRUX
+    assert_raises(Crux::RuntimeError) { eval_crux(code) }
+  end
+
+  # -- Pipes ---------------------------------------------------------------
+
+  def test_simple_pipe
+    code = <<~CRUX
+      let double = fn(x) -> x * 2
+      5 |> double
+    CRUX
+    assert_equal 10, eval_crux(code)
+  end
+
+  def test_chained_pipes
+    code = <<~CRUX
+      let double = fn(x) -> x * 2
+      let square = fn(x) -> x * x
+      3 |> double |> square
+    CRUX
+    assert_equal 36, eval_crux(code)
+  end
+
+  def test_pipe_with_extra_arguments
+    code = <<~CRUX
+      let add = fn(a, b) -> a + b
+      5 |> add(10)
+    CRUX
+    assert_equal 15, eval_crux(code)
+  end
+
+  def test_pipe_to_builtin
+    output = StringIO.new
+    interpreter = Crux::Interpreter.new(output: output)
+    tokens = Crux::Lexer.new("42 |> print").tokenize
+    ast = Crux::Parser.new(tokens).parse
+    interpreter.evaluate(ast)
+    assert_equal "42\n", output.string
+  end
+
+  # -- Builtins ------------------------------------------------------------
+
+  def test_print
+    output = StringIO.new
+    interpreter = Crux::Interpreter.new(output: output)
+    tokens = Crux::Lexer.new('print("hi")').tokenize
+    ast = Crux::Parser.new(tokens).parse
+    interpreter.evaluate(ast)
+    assert_equal "hi\n", output.string
+  end
+
+  def test_str
+    assert_equal "42", eval_crux("str(42)")
+  end
+
+  def test_len
+    assert_equal 5, eval_crux('len("hello")')
+  end
+
+  def test_type
+    assert_equal "number", eval_crux("type(42)")
+    assert_equal "string", eval_crux('type("hi")')
+    assert_equal "boolean", eval_crux("type(true)")
+    assert_equal "nil", eval_crux("type(nil)")
+    assert_equal "function", eval_crux("type(fn() -> 1)")
+  end
+
+  def test_abs
+    assert_equal 5, eval_crux("abs(-5)")
+    assert_equal 5, eval_crux("abs(5)")
+  end
+
+  def test_max_and_min
+    assert_equal 10, eval_crux("max(3, 10)")
+    assert_equal 3, eval_crux("min(3, 10)")
+  end
+
+  def test_to_int
+    assert_equal 3, eval_crux("to_int(3.7)")
+    assert_equal 42, eval_crux('to_int("42")')
+  end
+
+  def test_to_float
+    assert_in_delta 3.0, eval_crux("to_float(3)")
+  end
+
+  # -- Integration ---------------------------------------------------------
+
+  def test_fizzbuzz
+    code = <<~CRUX
+      let fizzbuzz = fn(n) ->
+        if n % 15 == 0 then "FizzBuzz"
+        else if n % 3 == 0 then "Fizz"
+        else if n % 5 == 0 then "Buzz"
+        else str(n) end end end
+
+      fizzbuzz(15)
+    CRUX
+    assert_equal "FizzBuzz", eval_crux(code)
+  end
+
+  def test_compose
+    code = <<~CRUX
+      let compose = fn(f, g) -> fn(x) -> f(g(x))
+      let double = fn(x) -> x * 2
+      let inc = fn(x) -> x + 1
+      let double_then_inc = compose(inc, double)
+      double_then_inc(5)
+    CRUX
+    assert_equal 11, eval_crux(code)
+  end
+
+  private
+
+  def eval_crux(source)
+    output = StringIO.new
+    tokens = Crux::Lexer.new(source).tokenize
+    ast = Crux::Parser.new(tokens).parse
+    Crux::Interpreter.new(output: output).evaluate(ast)
+  end
+end
