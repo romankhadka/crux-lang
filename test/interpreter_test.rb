@@ -791,6 +791,401 @@ class InterpreterTest < Minitest::Test
     assert result >= 0.0 && result < 1.0
   end
 
+  # -- New string builtins -------------------------------------------------
+
+  def test_starts_with
+    assert_equal true, eval_crux('starts_with("hello", "hel")')
+    assert_equal false, eval_crux('starts_with("hello", "world")')
+  end
+
+  def test_ends_with
+    assert_equal true, eval_crux('ends_with("hello", "llo")')
+    assert_equal false, eval_crux('ends_with("hello", "hel")')
+  end
+
+  def test_pad_left
+    assert_equal "00042", eval_crux('pad_left("42", 5, "0")')
+    assert_equal "42", eval_crux('pad_left("42", 2, "0")')
+  end
+
+  def test_pad_right
+    assert_equal "42000", eval_crux('pad_right("42", 5, "0")')
+    assert_equal "hi", eval_crux('pad_right("hi", 1, " ")')
+  end
+
+  def test_index_of_string
+    assert_equal 2, eval_crux('index_of("hello", "llo")')
+    assert_equal(-1, eval_crux('index_of("hello", "xyz")'))
+  end
+
+  def test_index_of_array
+    assert_equal 1, eval_crux("index_of([10, 20, 30], 20)")
+    assert_equal(-1, eval_crux("index_of([10, 20, 30], 99)"))
+  end
+
+  def test_repeat_string
+    assert_equal "hahaha", eval_crux('repeat("ha", 3)')
+  end
+
+  def test_repeat_array
+    assert_equal [1, 2, 1, 2], eval_crux("repeat([1, 2], 2)")
+  end
+
+  def test_count_string
+    assert_equal 3, eval_crux('count("banana", "a")')
+  end
+
+  def test_count_array_value
+    assert_equal 2, eval_crux("count([1, 2, 3, 2], 2)")
+  end
+
+  def test_count_array_predicate
+    code = <<~CRUX
+      let even = fn(x) -> x % 2 == 0
+      count([1, 2, 3, 4, 5, 6], even)
+    CRUX
+    assert_equal 3, eval_crux(code)
+  end
+
+  def test_reverse_string
+    assert_equal "olleh", eval_crux('reverse("hello")')
+  end
+
+  def test_slice_array
+    assert_equal [20, 30], eval_crux("slice([10, 20, 30, 40], 1, 2)")
+  end
+
+  # -- New array builtins --------------------------------------------------
+
+  def test_flatten
+    assert_equal [1, 2, 3, 4], eval_crux("flatten([[1, 2], [3, [4]]])")
+  end
+
+  def test_zip
+    assert_equal [[1, "a"], [2, "b"]], eval_crux('zip([1, 2, 3], ["a", "b"])')
+  end
+
+  def test_uniq
+    assert_equal [1, 2, 3], eval_crux("uniq([1, 2, 2, 3, 1])")
+  end
+
+  def test_find
+    code = <<~CRUX
+      let gt3 = fn(x) -> x > 3
+      find([1, 2, 3, 4, 5], gt3)
+    CRUX
+    assert_equal 4, eval_crux(code)
+  end
+
+  def test_find_returns_nil_when_not_found
+    code = <<~CRUX
+      let gt10 = fn(x) -> x > 10
+      find([1, 2, 3], gt10)
+    CRUX
+    assert_nil eval_crux(code)
+  end
+
+  def test_find_index
+    code = <<~CRUX
+      let even = fn(x) -> x % 2 == 0
+      find_index([1, 3, 4, 5], even)
+    CRUX
+    assert_equal 2, eval_crux(code)
+  end
+
+  def test_find_index_returns_nil_when_not_found
+    code = <<~CRUX
+      let neg = fn(x) -> x < 0
+      find_index([1, 2, 3], neg)
+    CRUX
+    assert_nil eval_crux(code)
+  end
+
+  def test_any
+    code = <<~CRUX
+      let even = fn(x) -> x % 2 == 0
+      any([1, 3, 4], even)
+    CRUX
+    assert_equal true, eval_crux(code)
+  end
+
+  def test_any_false
+    code = <<~CRUX
+      let neg = fn(x) -> x < 0
+      any([1, 2, 3], neg)
+    CRUX
+    assert_equal false, eval_crux(code)
+  end
+
+  def test_all
+    code = <<~CRUX
+      let pos = fn(x) -> x > 0
+      all([1, 2, 3], pos)
+    CRUX
+    assert_equal true, eval_crux(code)
+  end
+
+  def test_all_false
+    code = <<~CRUX
+      let pos = fn(x) -> x > 0
+      all([1, -1, 3], pos)
+    CRUX
+    assert_equal false, eval_crux(code)
+  end
+
+  def test_none
+    code = <<~CRUX
+      let neg = fn(x) -> x < 0
+      none([1, 2, 3], neg)
+    CRUX
+    assert_equal true, eval_crux(code)
+  end
+
+  def test_none_false
+    code = <<~CRUX
+      let neg = fn(x) -> x < 0
+      none([1, -2, 3], neg)
+    CRUX
+    assert_equal false, eval_crux(code)
+  end
+
+  def test_take
+    assert_equal [1, 2], eval_crux("take([1, 2, 3, 4], 2)")
+  end
+
+  def test_drop
+    assert_equal [3, 4], eval_crux("drop([1, 2, 3, 4], 2)")
+  end
+
+  def test_flat_map
+    code = <<~CRUX
+      let expand = fn(x) -> [x, x * 2]
+      flat_map([1, 2, 3], expand)
+    CRUX
+    assert_equal [1, 2, 2, 4, 3, 6], eval_crux(code)
+  end
+
+  def test_sum
+    assert_equal 10, eval_crux("sum([1, 2, 3, 4])")
+  end
+
+  def test_sum_empty
+    assert_equal 0, eval_crux("sum([])")
+  end
+
+  def test_enumerate
+    assert_equal [[0, "a"], [1, "b"], [2, "c"]], eval_crux('enumerate(["a", "b", "c"])')
+  end
+
+  def test_compact
+    assert_equal [1, 2, 3], eval_crux("compact([1, nil, 2, nil, 3])")
+  end
+
+  def test_includes
+    assert_equal true, eval_crux("includes([1, 2, 3], 2)")
+    assert_equal false, eval_crux("includes([1, 2, 3], 99)")
+  end
+
+  def test_chunk
+    assert_equal [[1, 2], [3, 4], [5]], eval_crux("chunk([1, 2, 3, 4, 5], 2)")
+  end
+
+  def test_min_of
+    assert_equal 1, eval_crux("min_of([3, 1, 2])")
+  end
+
+  def test_max_of
+    assert_equal 3, eval_crux("max_of([3, 1, 2])")
+  end
+
+  def test_sort_by
+    code = <<~CRUX
+      let neg = fn(x) -> 0 - x
+      sort_by([1, 3, 2], neg)
+    CRUX
+    assert_equal [3, 2, 1], eval_crux(code)
+  end
+
+  # -- New hash builtins ---------------------------------------------------
+
+  def test_delete_key
+    code = <<~CRUX
+      let h = {"a": 1, "b": 2}
+      let val = delete_key(h, "a")
+      val
+    CRUX
+    assert_equal 1, eval_crux(code)
+  end
+
+  def test_delete_key_mutates
+    code = <<~CRUX
+      let h = {"a": 1, "b": 2}
+      delete_key(h, "a")
+      has_key(h, "a")
+    CRUX
+    assert_equal false, eval_crux(code)
+  end
+
+  def test_each_entry
+    code = <<~CRUX
+      let result = []
+      each_entry({"a": 1, "b": 2}, fn(k, v) -> push(result, k))
+      len(result)
+    CRUX
+    assert_equal 2, eval_crux(code)
+  end
+
+  def test_map_values
+    code = <<~CRUX
+      let h = {"a": 1, "b": 2}
+      let doubled = map_values(h, fn(v) -> v * 2)
+      doubled["a"]
+    CRUX
+    assert_equal 2, eval_crux(code)
+  end
+
+  def test_filter_entries
+    code = <<~CRUX
+      let h = {"a": 1, "b": 2, "c": 3}
+      let big = filter_entries(h, fn(k, v) -> v > 1)
+      len(big)
+    CRUX
+    assert_equal 2, eval_crux(code)
+  end
+
+  def test_get_with_existing_key
+    assert_equal 1, eval_crux('get({"a": 1}, "a", 99)')
+  end
+
+  def test_get_with_missing_key
+    assert_equal 99, eval_crux('get({"a": 1}, "b", 99)')
+  end
+
+  def test_from_pairs
+    code = <<~CRUX
+      let h = from_pairs([["a", 1], ["b", 2]])
+      h["a"]
+    CRUX
+    assert_equal 1, eval_crux(code)
+  end
+
+  def test_to_pairs
+    code = <<~CRUX
+      let h = {"x": 10}
+      let pairs = to_pairs(h)
+      first(first(pairs))
+    CRUX
+    assert_equal "x", eval_crux(code)
+  end
+
+  # -- New math builtins ---------------------------------------------------
+
+  def test_sin
+    assert_in_delta 0.0, eval_crux("sin(0)"), 0.0001
+  end
+
+  def test_cos
+    assert_in_delta 1.0, eval_crux("cos(0)"), 0.0001
+  end
+
+  def test_tan
+    assert_in_delta 0.0, eval_crux("tan(0)"), 0.0001
+  end
+
+  def test_asin
+    assert_in_delta 0.0, eval_crux("asin(0)"), 0.0001
+  end
+
+  def test_acos
+    assert_in_delta 0.0, eval_crux("acos(1)"), 0.0001
+  end
+
+  def test_atan
+    assert_in_delta 0.0, eval_crux("atan(0)"), 0.0001
+  end
+
+  def test_log
+    assert_in_delta 0.0, eval_crux("log(1)"), 0.0001
+    assert_in_delta 1.0, eval_crux("log(to_float(2718281828) / 1000000000)"), 0.01
+  end
+
+  def test_log_domain_error
+    assert_raises(Crux::RuntimeError) { eval_crux("log(0)") }
+    assert_raises(Crux::RuntimeError) { eval_crux("log(-1)") }
+  end
+
+  def test_log10
+    assert_in_delta 2.0, eval_crux("log10(100)"), 0.0001
+    assert_in_delta 1.0, eval_crux("log10(10)"), 0.0001
+  end
+
+  # -- New utility builtins ------------------------------------------------
+
+  def test_clamp
+    assert_equal 5, eval_crux("clamp(5, 0, 10)")
+    assert_equal 0, eval_crux("clamp(-3, 0, 10)")
+    assert_equal 10, eval_crux("clamp(15, 0, 10)")
+  end
+
+  def test_sign
+    assert_equal 1, eval_crux("sign(42)")
+    assert_equal(-1, eval_crux("sign(-7)"))
+    assert_equal 0, eval_crux("sign(0)")
+  end
+
+  def test_assert_success
+    assert_nil eval_crux('assert(true, "should not fail")')
+  end
+
+  def test_assert_failure
+    assert_raises(Crux::UserError) { eval_crux('assert(false, "boom")') }
+  end
+
+  def test_time
+    result = eval_crux("time()")
+    assert_kind_of Float, result
+    assert result > 0
+  end
+
+  def test_inspect_values
+    assert_equal '"hello"', eval_crux('inspect("hello")')
+    assert_equal "42", eval_crux("inspect(42)")
+    assert_equal "nil", eval_crux("inspect(nil)")
+    assert_equal "true", eval_crux("inspect(true)")
+  end
+
+  def test_inspect_array
+    assert_equal '[1, "a"]', eval_crux('inspect([1, "a"])')
+  end
+
+  def test_is
+    assert_equal true, eval_crux('is(42, "number")')
+    assert_equal true, eval_crux('is(3.14, "number")')
+    assert_equal true, eval_crux('is("hi", "string")')
+    assert_equal true, eval_crux('is([1], "array")')
+    assert_equal true, eval_crux('is({"a": 1}, "hash")')
+    assert_equal true, eval_crux('is(true, "boolean")')
+    assert_equal true, eval_crux('is(nil, "nil")')
+    assert_equal true, eval_crux('is(fn() -> 1, "function")')
+    assert_equal false, eval_crux('is(42, "string")')
+  end
+
+  def test_is_builtin_is_function
+    assert_equal true, eval_crux('is(print, "function")')
+  end
+
+  def test_apply
+    code = <<~CRUX
+      let add = fn(a, b) -> a + b
+      apply(add, [3, 4])
+    CRUX
+    assert_equal 7, eval_crux(code)
+  end
+
+  def test_apply_builtin
+    assert_equal 5, eval_crux("apply(abs, [-5])")
+  end
+
   # -- Integration ---------------------------------------------------------
 
   def test_fizzbuzz
