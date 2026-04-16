@@ -1,0 +1,71 @@
+# Showcase — demonstrating all Crux features in one program
+
+/* ============================================
+   Arrays, hashmaps, for-in, string interpolation,
+   rest parameters, pipes, closures, try/catch
+   ============================================ */
+
+# String interpolation
+let language = "Crux"
+print("Welcome to ${language}!")
+
+# Arrays + map/filter/reduce with pipes
+let numbers = range(1, 11)
+let squares = map(numbers, fn(x) -> x * x)
+let evens = filter(squares, fn(x) -> x % 2 == 0)
+let total = reduce(evens, 0, fn(a, b) -> a + b)
+print("Sum of even squares from 1-10: ${total}")
+
+# Hashmaps
+let person = {"name": "Alice", "age": 30, "role": "Engineer"}
+print("${person["name"]} is a ${person["age"]}-year-old ${person["role"]}")
+
+# For-in with string interpolation
+print("\nFibonacci via for-in:")
+let fibs = [0, 1]
+for i in range(2, 10) do
+  push(fibs, fibs[i - 1] + fibs[i - 2])
+end
+print(join(fibs, ", "))
+
+# Rest parameters
+let log = fn(level, ...messages) ->
+  print("[${upper(level)}] ${join(messages, " ")}")
+
+log("info", "server", "started", "on", "port", "3000")
+log("warn", "memory", "usage", "high")
+
+# Closures as iterators
+let make_range_iter = fn(start, stop) -> do
+  let current = start - 1
+  fn() -> do
+    current = current + 1
+    if current < stop then current
+    else nil end
+  end
+end
+
+let next_val = make_range_iter(1, 4)
+print("\nIterator: ${next_val()}, ${next_val()}, ${next_val()}, ${str(next_val())}")
+
+# Try/catch error handling
+let safe_parse = fn(input) ->
+  try
+    to_int(input)
+  catch e ->
+    print("  Failed to parse '${input}': ${e}")
+    0
+  end
+
+print("\nSafe parsing:")
+print("  '42' -> ${safe_parse("42")}")
+safe_parse("not_a_number")
+
+# Higher-order: compose with pipes
+let transform = fn(x) ->
+  x |> str |> upper |> fn(s) -> "<<${s}>>"
+
+print("\nTransform 42: ${transform(42)}")
+print("Transform 99: ${transform(99)}")
+
+print("\nDone!")
