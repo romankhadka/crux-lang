@@ -257,6 +257,41 @@ class InterpreterTest < Minitest::Test
     assert_equal 55, eval_crux(code)
   end
 
+  # -- String interpolation ------------------------------------------------
+
+  def test_basic_interpolation
+    code = <<~CRUX
+      let name = "world"
+      "Hello, ${name}!"
+    CRUX
+    assert_equal "Hello, world!", eval_crux(code)
+  end
+
+  def test_interpolation_with_expression
+    assert_equal "2 + 3 = 5", eval_crux('"2 + 3 = ${2 + 3}"')
+  end
+
+  def test_interpolation_multiple_parts
+    code = <<~CRUX
+      let a = "foo"
+      let b = "bar"
+      "${a} and ${b}"
+    CRUX
+    assert_equal "foo and bar", eval_crux(code)
+  end
+
+  def test_interpolation_nested_braces
+    assert_equal "sum=6", eval_crux('"sum=${1 + 2 + 3}"')
+  end
+
+  def test_interpolation_escape_dollar
+    assert_equal "${x}", eval_crux('"\\${x}"')
+  end
+
+  def test_no_interpolation_plain_string
+    assert_equal "hello", eval_crux('"hello"')
+  end
+
   # -- Hashmaps ------------------------------------------------------------
 
   def test_hash_literal

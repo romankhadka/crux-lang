@@ -18,6 +18,11 @@ module Crux
     # A boolean literal (true or false).
     BoolLit = Data.define(:value)
 
+    # A string interpolation: "Hello, ${expr}!".
+    #
+    # parts - An Array of AST nodes (StringLit for literal parts, expressions for interpolated parts).
+    Interpolation = Data.define(:parts)
+
     # The nil literal.
     NilLit = Data.define
 

@@ -129,29 +129,70 @@ module Crux
       start_line = @line
       start_col = @column
       advance # skip opening quote
-      value = +""
+
+      parts = []
+      current = +""
+      has_interpolation = false
 
       while @pos < @source.length && @source[@pos] != '"'
         if @source[@pos] == "\\"
           advance
-          value << case @source[@pos]
-                   when "n" then "\n"
-                   when "t" then "\t"
-                   when "\\" then "\\"
-                   when '"' then '"'
-                   else
-                     raise Crux::SyntaxError, "Invalid escape '\\#{@source[@pos]}' at line #{@line}"
-                   end
+          current << case @source[@pos]
+                     when "n" then "\n"
+                     when "t" then "\t"
+                     when "\\" then "\\"
+                     when '"' then '"'
+                     when "$" then "$"
+                     else
+                       raise Crux::SyntaxError, "Invalid escape '\\#{@source[@pos]}' at line #{@line}"
+                     end
+          advance
+        elsif @source[@pos] == "$" && @pos + 1 < @source.length && @source[@pos + 1] == "{"
+          has_interpolation = true
+          parts << current unless current.empty?
+          current = +""
+          advance # skip $
+          advance # skip {
+          expr_text = +""
+          depth = 1
+          while @pos < @source.length && depth > 0
+            if @source[@pos] == "{"
+              depth += 1
+            elsif @source[@pos] == "}"
+              depth -= 1
+              break if depth == 0
+            end
+            expr_text << @source[@pos]
+            advance
+          end
+          raise Crux::SyntaxError, "Unterminated interpolation at line #{start_line}" if depth > 0
+          advance # skip closing }
+          expr_tokens = Lexer.new(expr_text).tokenize
+          expr_tokens.pop # remove EOF
+          parts << expr_tokens
         else
-          value << @source[@pos]
+          current << @source[@pos]
+          advance
         end
-        advance
       end
 
       raise Crux::SyntaxError, "Unterminated string at line #{start_line}" if @pos >= @source.length
-
       advance # skip closing quote
-      @tokens << Token.new(type: :string, value: value, line: start_line, column: start_col)
+
+      if has_interpolation
+        parts << current unless current.empty?
+        @tokens << Token.new(type: :interp_start, value: nil, line: start_line, column: start_col)
+        parts.each do |part|
+          if part.is_a?(String)
+            @tokens << Token.new(type: :string, value: part, line: start_line, column: start_col)
+          else
+            @tokens.concat(part)
+          end
+        end
+        @tokens << Token.new(type: :interp_end, value: nil, line: start_line, column: start_col)
+      else
+        @tokens << Token.new(type: :string, value: current, line: start_line, column: start_col)
+      end
     end
 
     def read_number

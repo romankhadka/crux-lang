@@ -192,6 +192,10 @@ module Crux
     # -- Primary -----------------------------------------------------------
 
     def parse_primary
+      if check(:interp_start)
+        return parse_interpolation
+      end
+
       if check(:number) || check(:string)
         tok = advance
         return tok.type == :number ? AST::NumberLit.new(value: tok.value) : AST::StringLit.new(value: tok.value)
@@ -234,6 +238,20 @@ module Crux
       return parse_block if check(:do)
 
       raise Crux::SyntaxError, "Unexpected token '#{peek.value || peek.type}' at line #{peek.line}"
+    end
+
+    def parse_interpolation
+      consume(:interp_start, "Expected interpolation start")
+      parts = []
+      until check(:interp_end) || check(:eof)
+        if check(:string)
+          parts << AST::StringLit.new(value: advance.value)
+        else
+          parts << parse_expression
+        end
+      end
+      consume(:interp_end, "Expected interpolation end")
+      AST::Interpolation.new(parts: parts)
     end
 
     def parse_hash

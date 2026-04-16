@@ -53,6 +53,9 @@ module Crux
       in AST::NilLit
         nil
 
+      in AST::Interpolation[parts:]
+        parts.map { |p| stringify(evaluate(p, env)) }.join
+
       in AST::ArrayLit[elements:]
         elements.map { |e| evaluate(e, env) }
 
