@@ -6,7 +6,7 @@ module Crux
   # params - An Array of String parameter names.
   # body   - An AST node.
   # env    - The Environment captured at definition time.
-  Closure = Data.define(:params, :body, :env)
+  Closure = Data.define(:params, :rest_param, :body, :env)
 
   # A built-in function implemented in Ruby.
   #
@@ -111,8 +111,8 @@ module Crux
       in AST::Block[statements:]
         evaluate_block(statements, env)
 
-      in AST::Function[params:, body:]
-        Closure.new(params: params, body: body, env: env)
+      in AST::Function[params:, rest_param:, body:]
+        Closure.new(params: params, rest_param: rest_param, body: body, env: env)
 
       in AST::Call[callee:, arguments:]
         func = evaluate(callee, env)
@@ -144,7 +144,10 @@ module Crux
         value == value.to_i ? value.to_i.to_s : value.to_s
       when Hash then "{#{value.map { |k, v| "#{stringify(k)}: #{stringify(v)}" }.join(", ")}}"
       when Array then "[#{value.map { |v| stringify(v) }.join(", ")}]"
-      when Closure then "<fn(#{value.params.join(", ")})>"
+      when Closure
+        all_params = value.params.dup
+        all_params << "...#{value.rest_param}" if value.rest_param
+        "<fn(#{all_params.join(", ")})>"
       when Builtin then "<builtin:#{value.name}>"
       else value.to_s
       end
@@ -264,13 +267,18 @@ module Crux
 
     def call_function(func, args)
       case func
-      in Closure[params:, body:, env:]
-        if args.length != params.length
+      in Closure[params:, rest_param:, body:, env:]
+        if rest_param
+          if args.length < params.length
+            raise Crux::RuntimeError, "Expected at least #{params.length} arguments, got #{args.length}"
+          end
+        elsif args.length != params.length
           raise Crux::RuntimeError, "Expected #{params.length} arguments, got #{args.length}"
         end
 
         call_env = Environment.new(parent: env)
         params.each_with_index { |name, i| call_env.define(name, args[i]) }
+        call_env.define(rest_param, args[params.length..]) if rest_param
         evaluate(body, call_env)
 
       in Builtin[name:, arity:, body:]

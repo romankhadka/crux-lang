@@ -257,6 +257,40 @@ class InterpreterTest < Minitest::Test
     assert_equal 55, eval_crux(code)
   end
 
+  # -- Rest parameters -----------------------------------------------------
+
+  def test_rest_params_basic
+    code = <<~CRUX
+      let f = fn(first, ...rest) -> rest
+      f(1, 2, 3, 4)
+    CRUX
+    assert_equal [2, 3, 4], eval_crux(code)
+  end
+
+  def test_rest_params_empty
+    code = <<~CRUX
+      let f = fn(first, ...rest) -> rest
+      f(1)
+    CRUX
+    assert_equal [], eval_crux(code)
+  end
+
+  def test_rest_params_only
+    code = <<~CRUX
+      let sum_all = fn(...nums) -> reduce(nums, 0, fn(a, b) -> a + b)
+      sum_all(1, 2, 3, 4, 5)
+    CRUX
+    assert_equal 15, eval_crux(code)
+  end
+
+  def test_rest_params_too_few_args
+    code = <<~CRUX
+      let f = fn(a, b, ...rest) -> rest
+      f(1)
+    CRUX
+    assert_raises(Crux::RuntimeError) { eval_crux(code) }
+  end
+
   # -- String interpolation ------------------------------------------------
 
   def test_basic_interpolation

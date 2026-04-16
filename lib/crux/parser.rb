@@ -288,10 +288,21 @@ module Crux
       consume(:lparen, "Expected '(' after 'fn'")
 
       params = []
+      rest_param = nil
       unless check(:rparen)
-        params << consume(:identifier, "Expected parameter name").value
-        while match(:comma)
+        if check(:dotdotdot)
+          advance
+          rest_param = consume(:identifier, "Expected parameter name after '...'").value
+        else
           params << consume(:identifier, "Expected parameter name").value
+          while match(:comma)
+            if check(:dotdotdot)
+              advance
+              rest_param = consume(:identifier, "Expected parameter name after '...'").value
+              break
+            end
+            params << consume(:identifier, "Expected parameter name").value
+          end
         end
       end
 
@@ -299,7 +310,7 @@ module Crux
       consume(:arrow, "Expected '->' after parameters")
       skip_newlines
       body = parse_expression
-      AST::Function.new(params: params, body: body)
+      AST::Function.new(params: params, rest_param: rest_param, body: body)
     end
 
     def parse_if

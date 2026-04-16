@@ -84,6 +84,14 @@ module Crux
         emit(:rbrace, "}")
       when ":"
         emit(:colon, ":")
+      when "."
+        if @pos + 2 < @source.length && @source[@pos + 1] == "." && @source[@pos + 2] == "."
+          start_col = @column
+          advance; advance; advance
+          @tokens << Token.new(type: :dotdotdot, value: "...", line: @line, column: start_col)
+        else
+          raise Crux::SyntaxError, "Unexpected character '.' at line #{@line}, column #{@column}"
+        end
       when ","
         emit(:comma, ",")
       when ";"

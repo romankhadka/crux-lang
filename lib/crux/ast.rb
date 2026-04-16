@@ -86,9 +86,10 @@ module Crux
 
     # A function literal: fn(params) -> body.
     #
-    # params - An Array of String parameter names.
-    # body   - An AST node (the function body).
-    Function = Data.define(:params, :body)
+    # params     - An Array of String parameter names.
+    # rest_param - An optional String name for the rest parameter, or nil.
+    # body       - An AST node (the function body).
+    Function = Data.define(:params, :rest_param, :body)
 
     # A let binding: let name = value.
     #
