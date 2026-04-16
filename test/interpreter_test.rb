@@ -366,6 +366,57 @@ class InterpreterTest < Minitest::Test
     assert_in_delta 3.0, eval_crux("to_float(3)")
   end
 
+  # -- Arrays --------------------------------------------------------------
+
+  def test_array_literal
+    assert_equal [1, 2, 3], eval_crux("[1, 2, 3]")
+  end
+
+  def test_empty_array
+    assert_equal [], eval_crux("[]")
+  end
+
+  def test_array_index_access
+    assert_equal 20, eval_crux("[10, 20, 30][1]")
+  end
+
+  def test_array_negative_index
+    assert_equal 30, eval_crux("[10, 20, 30][-1]")
+  end
+
+  def test_array_index_out_of_bounds
+    assert_raises(Crux::RuntimeError) { eval_crux("[1, 2][5]") }
+  end
+
+  def test_array_index_assign
+    code = <<~CRUX
+      let arr = [1, 2, 3]
+      arr[1] = 99
+      arr[1]
+    CRUX
+    assert_equal 99, eval_crux(code)
+  end
+
+  def test_array_with_expressions
+    assert_equal [3, 7], eval_crux("[1 + 2, 3 + 4]")
+  end
+
+  def test_len_on_array
+    assert_equal 3, eval_crux("len([1, 2, 3])")
+  end
+
+  def test_array_type
+    assert_equal "array", eval_crux("type([1, 2])")
+  end
+
+  def test_nested_arrays
+    assert_equal 5, eval_crux("[[1, 2], [3, 4, 5]][1][2]")
+  end
+
+  def test_string_index_access
+    assert_equal "e", eval_crux('"hello"[1]')
+  end
+
   # -- String builtins -----------------------------------------------------
 
   def test_upper

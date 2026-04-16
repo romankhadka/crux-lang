@@ -74,6 +74,10 @@ module Crux
         emit(:lparen, "(")
       when ")"
         emit(:rparen, ")")
+      when "["
+        emit(:lbracket, "[")
+      when "]"
+        emit(:rbracket, "]")
       when ","
         emit(:comma, ",")
       when ";"

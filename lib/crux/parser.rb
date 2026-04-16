@@ -89,9 +89,15 @@ module Crux
     def parse_assignment
       expr = parse_logic_or
 
-      if expr.is_a?(AST::Identifier) && match(:equal)
+      if match(:equal)
         value = parse_expression
-        return AST::Assignment.new(name: expr.name, value: value)
+        if expr.is_a?(AST::Identifier)
+          return AST::Assignment.new(name: expr.name, value: value)
+        elsif expr.is_a?(AST::IndexAccess)
+          return AST::IndexAssign.new(object: expr.object, index: expr.index, value: value)
+        else
+          raise Crux::SyntaxError, "Invalid assignment target at line #{peek.line}"
+        end
       end
 
       expr
@@ -164,11 +170,20 @@ module Crux
     def parse_call
       expr = parse_primary
 
-      while check(:lparen)
-        advance
-        args = check(:rparen) ? [] : parse_arguments
-        consume(:rparen, "Expected ')' after arguments")
-        expr = AST::Call.new(callee: expr, arguments: args)
+      loop do
+        if check(:lparen)
+          advance
+          args = check(:rparen) ? [] : parse_arguments
+          consume(:rparen, "Expected ')' after arguments")
+          expr = AST::Call.new(callee: expr, arguments: args)
+        elsif check(:lbracket)
+          advance
+          index = parse_expression
+          consume(:rbracket, "Expected ']' after index")
+          expr = AST::IndexAccess.new(object: expr, index: index)
+        else
+          break
+        end
       end
 
       expr
@@ -204,12 +219,29 @@ module Crux
         return expr
       end
 
+      if check(:lbracket)
+        return parse_array
+      end
+
       return parse_function if check(:fn)
       return parse_if if check(:if)
       return parse_while if check(:while)
       return parse_block if check(:do)
 
       raise Crux::SyntaxError, "Unexpected token '#{peek.value || peek.type}' at line #{peek.line}"
+    end
+
+    def parse_array
+      consume(:lbracket, "Expected '['")
+      elements = []
+      unless check(:rbracket)
+        elements << parse_expression
+        while match(:comma)
+          elements << parse_expression
+        end
+      end
+      consume(:rbracket, "Expected ']' after array elements")
+      AST::ArrayLit.new(elements: elements)
     end
 
     def parse_function

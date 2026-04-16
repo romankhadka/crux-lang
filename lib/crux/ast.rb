@@ -21,6 +21,11 @@ module Crux
     # The nil literal.
     NilLit = Data.define
 
+    # An array literal: [1, 2, 3].
+    #
+    # elements - An Array of AST nodes.
+    ArrayLit = Data.define(:elements)
+
     # -- Expressions -------------------------------------------------------
 
     # A variable reference.
@@ -46,6 +51,19 @@ module Crux
     # callee    - An AST node that evaluates to a callable.
     # arguments - An Array of AST nodes.
     Call = Data.define(:callee, :arguments)
+
+    # An index access: expr[expr].
+    #
+    # object - An AST node that evaluates to an indexable value.
+    # index  - An AST node that evaluates to the index.
+    IndexAccess = Data.define(:object, :index)
+
+    # An index assignment: expr[expr] = expr.
+    #
+    # object - An AST node that evaluates to an indexable value.
+    # index  - An AST node that evaluates to the index.
+    # value  - An AST node for the new value.
+    IndexAssign = Data.define(:object, :index, :value)
 
     # A pipe expression: value |> function.
     #

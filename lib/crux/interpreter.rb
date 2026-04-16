@@ -53,6 +53,9 @@ module Crux
       in AST::NilLit
         nil
 
+      in AST::ArrayLit[elements:]
+        elements.map { |e| evaluate(e, env) }
+
       in AST::Identifier[name:]
         env.fetch(name)
 
@@ -61,6 +64,12 @@ module Crux
 
       in AST::Assignment[name:, value:]
         env.assign(name, evaluate(value, env))
+
+      in AST::IndexAccess[object:, index:]
+        evaluate_index_access(object, index, env)
+
+      in AST::IndexAssign[object:, index:, value:]
+        evaluate_index_assign(object, index, value, env)
 
       in AST::UnaryOp[operator:, operand:]
         evaluate_unary(operator, operand, env)
@@ -114,6 +123,7 @@ module Crux
       when false then "false"
       when Float
         value == value.to_i ? value.to_i.to_s : value.to_s
+      when Array then "[#{value.map { |v| stringify(v) }.join(", ")}]"
       when Closure then "<fn(#{value.params.join(", ")})>"
       when Builtin then "<builtin:#{value.name}>"
       else value.to_s
@@ -133,6 +143,39 @@ module Crux
       result = nil
       statements.each { |stmt| result = evaluate(stmt, block_env) }
       result
+    end
+
+    def evaluate_index_access(object_node, index_node, env)
+      obj = evaluate(object_node, env)
+      idx = evaluate(index_node, env)
+
+      case obj
+      when Array
+        raise Crux::RuntimeError, "Array index must be a number" unless idx.is_a?(Integer)
+        raise Crux::RuntimeError, "Array index #{idx} out of bounds (size: #{obj.length})" if idx >= obj.length || idx < -obj.length
+        obj[idx]
+      when String
+        raise Crux::RuntimeError, "String index must be a number" unless idx.is_a?(Integer)
+        raise Crux::RuntimeError, "String index #{idx} out of bounds (size: #{obj.length})" if idx >= obj.length || idx < -obj.length
+        obj[idx]
+      else
+        raise Crux::RuntimeError, "Cannot index into #{type_name(obj)}"
+      end
+    end
+
+    def evaluate_index_assign(object_node, index_node, value_node, env)
+      obj = evaluate(object_node, env)
+      idx = evaluate(index_node, env)
+      val = evaluate(value_node, env)
+
+      case obj
+      when Array
+        raise Crux::RuntimeError, "Array index must be a number" unless idx.is_a?(Integer)
+        raise Crux::RuntimeError, "Array index #{idx} out of bounds (size: #{obj.length})" if idx >= obj.length || idx < -obj.length
+        obj[idx] = val
+      else
+        raise Crux::RuntimeError, "Cannot assign to index of #{type_name(obj)}"
+      end
     end
 
     def evaluate_unary(operator, operand, env)
@@ -228,6 +271,7 @@ module Crux
       when String then "string"
       when true, false then "boolean"
       when nil then "nil"
+      when Array then "array"
       when Closure then "function"
       when Builtin then "builtin"
       else value.class.name
@@ -275,7 +319,7 @@ module Crux
         name: "len",
         arity: 1,
         body: ->(val) {
-          raise Crux::RuntimeError, "len() expects a string, got #{type_name(val)}" unless val.is_a?(String)
+          raise Crux::RuntimeError, "len() expects a string or array, got #{type_name(val)}" unless val.is_a?(String) || val.is_a?(Array)
           val.length
         },
       ))
