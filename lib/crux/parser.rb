@@ -235,6 +235,8 @@ module Crux
       return parse_if if check(:if)
       return parse_while if check(:while)
       return parse_for_in if check(:for)
+      return parse_try_catch if check(:try)
+      return parse_throw if check(:throw)
       return parse_block if check(:do)
 
       raise Crux::SyntaxError, "Unexpected token '#{peek.value || peek.type}' at line #{peek.line}"
@@ -342,6 +344,34 @@ module Crux
       body = parse_block_body
       consume(:end, "Expected 'end' after while body")
       AST::While.new(condition: condition, body: body)
+    end
+
+    def parse_try_catch
+      consume(:try, "Expected 'try'")
+      skip_newlines
+      body = parse_try_body
+      consume(:catch, "Expected 'catch' after try body")
+      error_name = consume(:identifier, "Expected error variable name after 'catch'").value
+      consume(:arrow, "Expected '->' after catch variable")
+      skip_newlines
+      handler = parse_block_body
+      consume(:end, "Expected 'end' after catch handler")
+      AST::TryCatch.new(body: body, error_name: error_name, handler: handler)
+    end
+
+    def parse_try_body
+      stmts = []
+      until check(:catch) || check(:eof)
+        stmts << parse_statement
+        skip_newlines
+      end
+      stmts.length == 1 ? stmts.first : AST::Block.new(statements: stmts)
+    end
+
+    def parse_throw
+      consume(:throw, "Expected 'throw'")
+      message = parse_expression
+      AST::Throw.new(message: message)
     end
 
     def parse_for_in

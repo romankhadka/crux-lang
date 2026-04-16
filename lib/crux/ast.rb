@@ -125,6 +125,18 @@ module Crux
     # body     - An AST node.
     ForIn = Data.define(:name, :iterable, :body)
 
+    # A try-catch expression: try expr catch name -> handler end.
+    #
+    # body         - An AST node (the expression to try).
+    # error_name   - A String variable name to bind the error message.
+    # handler      - An AST node (the handler expression).
+    TryCatch = Data.define(:body, :error_name, :handler)
+
+    # A throw expression: throw expr.
+    #
+    # message - An AST node that evaluates to the error message.
+    Throw = Data.define(:message)
+
     # A block of statements: do stmt1; stmt2; expr end.
     # The last expression is the block's value.
     #

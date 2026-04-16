@@ -59,4 +59,7 @@ module Crux
 
   # Raised when the interpreter encounters an error at runtime.
   class RuntimeError < Error; end
+
+  # Raised by the throw keyword in user code.
+  class UserError < RuntimeError; end
 end

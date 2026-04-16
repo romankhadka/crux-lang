@@ -257,6 +257,59 @@ class InterpreterTest < Minitest::Test
     assert_equal 55, eval_crux(code)
   end
 
+  # -- Error handling ------------------------------------------------------
+
+  def test_try_catch_catches_runtime_error
+    code = <<~CRUX
+      try
+        1 / 0
+      catch e ->
+        "caught: " + e
+      end
+    CRUX
+    assert_equal "caught: Division by zero", eval_crux(code)
+  end
+
+  def test_try_catch_returns_body_on_success
+    code = <<~CRUX
+      try
+        42
+      catch e ->
+        0
+      end
+    CRUX
+    assert_equal 42, eval_crux(code)
+  end
+
+  def test_throw_and_catch
+    code = <<~CRUX
+      try
+        throw "something went wrong"
+      catch e ->
+        e
+      end
+    CRUX
+    assert_equal "something went wrong", eval_crux(code)
+  end
+
+  def test_throw_uncaught_raises
+    assert_raises(Crux::UserError) { eval_crux('throw "boom"') }
+  end
+
+  def test_try_catch_in_function
+    code = <<~CRUX
+      let safe_div = fn(a, b) ->
+        try
+          a / b
+        catch e ->
+          0
+        end
+
+      safe_div(10, 0)
+    CRUX
+    assert_equal 0, eval_crux(code)
+  end
+
   # -- Rest parameters -----------------------------------------------------
 
   def test_rest_params_basic

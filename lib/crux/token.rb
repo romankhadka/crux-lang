@@ -12,6 +12,7 @@ module Crux
   # All keyword tokens recognized by the language.
   KEYWORDS = %i[
     let fn if then else end do while for in
+    try catch throw
     and or not true false nil
   ].to_h { |k| [k.to_s, k] }.freeze
 end

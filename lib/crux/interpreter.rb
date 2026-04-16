@@ -97,6 +97,19 @@ module Crux
         result = evaluate(body, env) while truthy?(evaluate(condition, env))
         result
 
+      in AST::TryCatch[body:, error_name:, handler:]
+        begin
+          evaluate(body, env)
+        rescue Crux::RuntimeError, Crux::UserError => e
+          handler_env = Environment.new(parent: env)
+          handler_env.define(error_name, e.message)
+          evaluate(handler, handler_env)
+        end
+
+      in AST::Throw[message:]
+        msg = evaluate(message, env)
+        raise Crux::UserError, stringify(msg)
+
       in AST::ForIn[name:, iterable:, body:]
         collection = evaluate(iterable, env)
         raise Crux::RuntimeError, "for-in requires an array, got #{type_name(collection)}" unless collection.is_a?(Array)
