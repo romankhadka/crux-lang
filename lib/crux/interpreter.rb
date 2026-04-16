@@ -390,6 +390,81 @@ module Crux
           end
         },
       ))
+      register_string_builtins
+    end
+
+    def register_string_builtins
+      @globals.define("upper", Builtin.new(
+        name: "upper",
+        arity: 1,
+        body: ->(val) {
+          raise Crux::RuntimeError, "upper() expects a string" unless val.is_a?(String)
+          val.upcase
+        },
+      ))
+
+      @globals.define("lower", Builtin.new(
+        name: "lower",
+        arity: 1,
+        body: ->(val) {
+          raise Crux::RuntimeError, "lower() expects a string" unless val.is_a?(String)
+          val.downcase
+        },
+      ))
+
+      @globals.define("trim", Builtin.new(
+        name: "trim",
+        arity: 1,
+        body: ->(val) {
+          raise Crux::RuntimeError, "trim() expects a string" unless val.is_a?(String)
+          val.strip
+        },
+      ))
+
+      @globals.define("split", Builtin.new(
+        name: "split",
+        arity: 2,
+        body: ->(val, delim) {
+          raise Crux::RuntimeError, "split() expects strings" unless val.is_a?(String) && delim.is_a?(String)
+          val.split(delim)
+        },
+      ))
+
+      @globals.define("replace", Builtin.new(
+        name: "replace",
+        arity: 3,
+        body: ->(val, pattern, replacement) {
+          raise Crux::RuntimeError, "replace() expects strings" unless [val, pattern, replacement].all? { |v| v.is_a?(String) }
+          val.gsub(pattern, replacement)
+        },
+      ))
+
+      @globals.define("contains", Builtin.new(
+        name: "contains",
+        arity: 2,
+        body: ->(val, substr) {
+          raise Crux::RuntimeError, "contains() expects strings" unless val.is_a?(String) && substr.is_a?(String)
+          val.include?(substr)
+        },
+      ))
+
+      @globals.define("chars", Builtin.new(
+        name: "chars",
+        arity: 1,
+        body: ->(val) {
+          raise Crux::RuntimeError, "chars() expects a string" unless val.is_a?(String)
+          val.chars
+        },
+      ))
+
+      @globals.define("slice", Builtin.new(
+        name: "slice",
+        arity: 3,
+        body: ->(val, start, len) {
+          raise Crux::RuntimeError, "slice() expects a string and two numbers" unless val.is_a?(String) && start.is_a?(Integer) && len.is_a?(Integer)
+          val[start, len] || ""
+        },
+      ))
     end
   end
 end

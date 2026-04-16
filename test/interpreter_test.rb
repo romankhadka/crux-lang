@@ -366,6 +366,42 @@ class InterpreterTest < Minitest::Test
     assert_in_delta 3.0, eval_crux("to_float(3)")
   end
 
+  # -- String builtins -----------------------------------------------------
+
+  def test_upper
+    assert_equal "HELLO", eval_crux('upper("hello")')
+  end
+
+  def test_lower
+    assert_equal "hello", eval_crux('lower("HELLO")')
+  end
+
+  def test_trim
+    assert_equal "hello", eval_crux('trim("  hello  ")')
+  end
+
+  def test_split
+    result = eval_crux('split("a,b,c", ",")')
+    assert_equal ["a", "b", "c"], result
+  end
+
+  def test_replace
+    assert_equal "hello world", eval_crux('replace("hello there", "there", "world")')
+  end
+
+  def test_contains
+    assert_equal true, eval_crux('contains("hello world", "world")')
+    assert_equal false, eval_crux('contains("hello world", "xyz")')
+  end
+
+  def test_chars
+    assert_equal ["a", "b", "c"], eval_crux('chars("abc")')
+  end
+
+  def test_slice
+    assert_equal "ell", eval_crux('slice("hello", 1, 3)')
+  end
+
   # -- Math builtins -------------------------------------------------------
 
   def test_floor
