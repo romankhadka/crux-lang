@@ -26,6 +26,11 @@ module Crux
     # elements - An Array of AST nodes.
     ArrayLit = Data.define(:elements)
 
+    # A hash literal: {key: value, ...}.
+    #
+    # pairs - An Array of [AST node, AST node] pairs (key, value).
+    HashLit = Data.define(:pairs)
+
     # -- Expressions -------------------------------------------------------
 
     # A variable reference.

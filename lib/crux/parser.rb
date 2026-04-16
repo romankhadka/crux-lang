@@ -223,6 +223,10 @@ module Crux
         return parse_array
       end
 
+      if check(:lbrace)
+        return parse_hash
+      end
+
       return parse_function if check(:fn)
       return parse_if if check(:if)
       return parse_while if check(:while)
@@ -230,6 +234,22 @@ module Crux
       return parse_block if check(:do)
 
       raise Crux::SyntaxError, "Unexpected token '#{peek.value || peek.type}' at line #{peek.line}"
+    end
+
+    def parse_hash
+      consume(:lbrace, "Expected '{'")
+      pairs = []
+      unless check(:rbrace)
+        loop do
+          key = parse_expression
+          consume(:colon, "Expected ':' after hash key")
+          value = parse_expression
+          pairs << [key, value]
+          break unless match(:comma)
+        end
+      end
+      consume(:rbrace, "Expected '}' after hash entries")
+      AST::HashLit.new(pairs: pairs)
     end
 
     def parse_array

@@ -257,6 +257,74 @@ class InterpreterTest < Minitest::Test
     assert_equal 55, eval_crux(code)
   end
 
+  # -- Hashmaps ------------------------------------------------------------
+
+  def test_hash_literal
+    result = eval_crux('{"name": "Alice", "age": 30}')
+    assert_equal({"name" => "Alice", "age" => 30}, result)
+  end
+
+  def test_empty_hash
+    assert_equal({}, eval_crux("{}"))
+  end
+
+  def test_hash_bracket_access
+    assert_equal "Alice", eval_crux('{"name": "Alice"}["name"]')
+  end
+
+  def test_hash_bracket_assign
+    code = <<~CRUX
+      let h = {"x": 1}
+      h["x"] = 99
+      h["x"]
+    CRUX
+    assert_equal 99, eval_crux(code)
+  end
+
+  def test_hash_add_new_key
+    code = <<~CRUX
+      let h = {}
+      h["name"] = "Bob"
+      h["name"]
+    CRUX
+    assert_equal "Bob", eval_crux(code)
+  end
+
+  def test_hash_missing_key_returns_nil
+    assert_nil eval_crux('{"a": 1}["b"]')
+  end
+
+  def test_keys_and_values
+    code = <<~CRUX
+      let h = {"a": 1, "b": 2}
+      len(keys(h))
+    CRUX
+    assert_equal 2, eval_crux(code)
+  end
+
+  def test_has_key
+    assert_equal true, eval_crux('has_key({"x": 1}, "x")')
+    assert_equal false, eval_crux('has_key({"x": 1}, "y")')
+  end
+
+  def test_merge
+    code = <<~CRUX
+      let a = {"x": 1}
+      let b = {"y": 2}
+      let c = merge(a, b)
+      len(c)
+    CRUX
+    assert_equal 2, eval_crux(code)
+  end
+
+  def test_hash_type
+    assert_equal "hash", eval_crux('type({"a": 1})')
+  end
+
+  def test_len_on_hash
+    assert_equal 2, eval_crux('len({"a": 1, "b": 2})')
+  end
+
   # -- For-in loops --------------------------------------------------------
 
   def test_for_in_basic

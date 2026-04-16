@@ -56,6 +56,11 @@ module Crux
       in AST::ArrayLit[elements:]
         elements.map { |e| evaluate(e, env) }
 
+      in AST::HashLit[pairs:]
+        pairs.each_with_object({}) do |(k, v), hash|
+          hash[evaluate(k, env)] = evaluate(v, env)
+        end
+
       in AST::Identifier[name:]
         env.fetch(name)
 
@@ -134,6 +139,7 @@ module Crux
       when false then "false"
       when Float
         value == value.to_i ? value.to_i.to_s : value.to_s
+      when Hash then "{#{value.map { |k, v| "#{stringify(k)}: #{stringify(v)}" }.join(", ")}}"
       when Array then "[#{value.map { |v| stringify(v) }.join(", ")}]"
       when Closure then "<fn(#{value.params.join(", ")})>"
       when Builtin then "<builtin:#{value.name}>"
@@ -165,6 +171,8 @@ module Crux
         raise Crux::RuntimeError, "Array index must be a number" unless idx.is_a?(Integer)
         raise Crux::RuntimeError, "Array index #{idx} out of bounds (size: #{obj.length})" if idx >= obj.length || idx < -obj.length
         obj[idx]
+      when Hash
+        obj[idx]
       when String
         raise Crux::RuntimeError, "String index must be a number" unless idx.is_a?(Integer)
         raise Crux::RuntimeError, "String index #{idx} out of bounds (size: #{obj.length})" if idx >= obj.length || idx < -obj.length
@@ -183,6 +191,8 @@ module Crux
       when Array
         raise Crux::RuntimeError, "Array index must be a number" unless idx.is_a?(Integer)
         raise Crux::RuntimeError, "Array index #{idx} out of bounds (size: #{obj.length})" if idx >= obj.length || idx < -obj.length
+        obj[idx] = val
+      when Hash
         obj[idx] = val
       else
         raise Crux::RuntimeError, "Cannot assign to index of #{type_name(obj)}"
@@ -282,6 +292,7 @@ module Crux
       when String then "string"
       when true, false then "boolean"
       when nil then "nil"
+      when Hash then "hash"
       when Array then "array"
       when Closure then "function"
       when Builtin then "builtin"
@@ -330,8 +341,47 @@ module Crux
         name: "len",
         arity: 1,
         body: ->(val) {
-          raise Crux::RuntimeError, "len() expects a string or array, got #{type_name(val)}" unless val.is_a?(String) || val.is_a?(Array)
-          val.length
+          case val
+          when String, Array then val.length
+          when Hash then val.size
+          else raise Crux::RuntimeError, "len() expects a string, array, or hash, got #{type_name(val)}"
+          end
+        },
+      ))
+
+      @globals.define("keys", Builtin.new(
+        name: "keys",
+        arity: 1,
+        body: ->(val) {
+          raise Crux::RuntimeError, "keys() expects a hash" unless val.is_a?(Hash)
+          val.keys
+        },
+      ))
+
+      @globals.define("values", Builtin.new(
+        name: "values",
+        arity: 1,
+        body: ->(val) {
+          raise Crux::RuntimeError, "values() expects a hash" unless val.is_a?(Hash)
+          val.values
+        },
+      ))
+
+      @globals.define("has_key", Builtin.new(
+        name: "has_key",
+        arity: 2,
+        body: ->(hash, key) {
+          raise Crux::RuntimeError, "has_key() expects a hash" unless hash.is_a?(Hash)
+          hash.key?(key)
+        },
+      ))
+
+      @globals.define("merge", Builtin.new(
+        name: "merge",
+        arity: 2,
+        body: ->(a, b) {
+          raise Crux::RuntimeError, "merge() expects two hashes" unless a.is_a?(Hash) && b.is_a?(Hash)
+          a.merge(b)
         },
       ))
 
