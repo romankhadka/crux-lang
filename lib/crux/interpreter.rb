@@ -89,6 +89,17 @@ module Crux
         result = evaluate(body, env) while truthy?(evaluate(condition, env))
         result
 
+      in AST::ForIn[name:, iterable:, body:]
+        collection = evaluate(iterable, env)
+        raise Crux::RuntimeError, "for-in requires an array, got #{type_name(collection)}" unless collection.is_a?(Array)
+        result = nil
+        collection.each do |item|
+          loop_env = Environment.new(parent: env)
+          loop_env.define(name, item)
+          result = evaluate(body, loop_env)
+        end
+        result
+
       in AST::Block[statements:]
         evaluate_block(statements, env)
 

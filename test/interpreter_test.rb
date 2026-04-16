@@ -257,6 +257,45 @@ class InterpreterTest < Minitest::Test
     assert_equal 55, eval_crux(code)
   end
 
+  # -- For-in loops --------------------------------------------------------
+
+  def test_for_in_basic
+    code = <<~CRUX
+      let sum = 0
+      for x in [1, 2, 3, 4, 5] do
+        sum = sum + x
+      end
+      sum
+    CRUX
+    assert_equal 15, eval_crux(code)
+  end
+
+  def test_for_in_with_range
+    code = <<~CRUX
+      let sum = 0
+      for i in range(1, 6) do
+        sum = sum + i
+      end
+      sum
+    CRUX
+    assert_equal 15, eval_crux(code)
+  end
+
+  def test_for_in_scoping
+    code = <<~CRUX
+      for x in [1, 2, 3] do
+        x
+      end
+      x
+    CRUX
+    assert_raises(Crux::RuntimeError) { eval_crux(code) }
+  end
+
+  def test_for_in_returns_last_value
+    result = eval_crux("for x in [10, 20, 30] do x * 2 end")
+    assert_equal 60, result
+  end
+
   # -- Blocks --------------------------------------------------------------
 
   def test_block_returns_last_expression

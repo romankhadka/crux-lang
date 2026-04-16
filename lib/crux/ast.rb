@@ -107,6 +107,13 @@ module Crux
     # body      - An AST node.
     While = Data.define(:condition, :body)
 
+    # A for-in loop: for name in iterable do body end.
+    #
+    # name     - A String variable name for each element.
+    # iterable - An AST node that evaluates to an array.
+    # body     - An AST node.
+    ForIn = Data.define(:name, :iterable, :body)
+
     # A block of statements: do stmt1; stmt2; expr end.
     # The last expression is the block's value.
     #
