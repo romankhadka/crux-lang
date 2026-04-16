@@ -417,6 +417,82 @@ class InterpreterTest < Minitest::Test
     assert_equal "e", eval_crux('"hello"[1]')
   end
 
+  # -- Array builtins ------------------------------------------------------
+
+  def test_push_and_pop
+    code = <<~CRUX
+      let arr = [1, 2]
+      push(arr, 3)
+      pop(arr)
+    CRUX
+    assert_equal 3, eval_crux(code)
+  end
+
+  def test_first_and_last
+    assert_equal 1, eval_crux("first([1, 2, 3])")
+    assert_equal 3, eval_crux("last([1, 2, 3])")
+  end
+
+  def test_reverse
+    assert_equal [3, 2, 1], eval_crux("reverse([1, 2, 3])")
+  end
+
+  def test_sort
+    assert_equal [1, 2, 3], eval_crux("sort([3, 1, 2])")
+  end
+
+  def test_join
+    assert_equal "a-b-c", eval_crux('join(["a", "b", "c"], "-")')
+  end
+
+  def test_map
+    code = <<~CRUX
+      let double = fn(x) -> x * 2
+      map([1, 2, 3], double)
+    CRUX
+    assert_equal [2, 4, 6], eval_crux(code)
+  end
+
+  def test_filter
+    code = <<~CRUX
+      let even = fn(x) -> x % 2 == 0
+      filter([1, 2, 3, 4, 5, 6], even)
+    CRUX
+    assert_equal [2, 4, 6], eval_crux(code)
+  end
+
+  def test_reduce
+    code = <<~CRUX
+      let add = fn(acc, x) -> acc + x
+      reduce([1, 2, 3, 4], 0, add)
+    CRUX
+    assert_equal 10, eval_crux(code)
+  end
+
+  def test_range
+    assert_equal [0, 1, 2, 3, 4], eval_crux("range(0, 5)")
+  end
+
+  def test_concat
+    assert_equal [1, 2, 3, 4], eval_crux("concat([1, 2], [3, 4])")
+  end
+
+  def test_empty
+    assert_equal true, eval_crux("empty([])")
+    assert_equal false, eval_crux("empty([1])")
+  end
+
+  def test_map_filter_pipe_chain
+    code = <<~CRUX
+      let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      let even = fn(x) -> x % 2 == 0
+      let double = fn(x) -> x * 2
+      let result = filter(map(nums, double), even)
+      len(result)
+    CRUX
+    assert_equal 10, eval_crux(code)
+  end
+
   # -- String builtins -----------------------------------------------------
 
   def test_upper

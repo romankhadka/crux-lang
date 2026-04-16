@@ -435,6 +435,7 @@ module Crux
         },
       ))
       register_string_builtins
+      register_array_builtins
     end
 
     def register_string_builtins
@@ -507,6 +508,137 @@ module Crux
         body: ->(val, start, len) {
           raise Crux::RuntimeError, "slice() expects a string and two numbers" unless val.is_a?(String) && start.is_a?(Integer) && len.is_a?(Integer)
           val[start, len] || ""
+        },
+      ))
+    end
+
+    def register_array_builtins
+      @globals.define("push", Builtin.new(
+        name: "push",
+        arity: 2,
+        body: ->(arr, val) {
+          raise Crux::RuntimeError, "push() expects an array" unless arr.is_a?(Array)
+          arr.push(val)
+          arr
+        },
+      ))
+
+      @globals.define("pop", Builtin.new(
+        name: "pop",
+        arity: 1,
+        body: ->(arr) {
+          raise Crux::RuntimeError, "pop() expects an array" unless arr.is_a?(Array)
+          raise Crux::RuntimeError, "pop() on empty array" if arr.empty?
+          arr.pop
+        },
+      ))
+
+      @globals.define("first", Builtin.new(
+        name: "first",
+        arity: 1,
+        body: ->(arr) {
+          raise Crux::RuntimeError, "first() expects an array" unless arr.is_a?(Array)
+          arr.first
+        },
+      ))
+
+      @globals.define("last", Builtin.new(
+        name: "last",
+        arity: 1,
+        body: ->(arr) {
+          raise Crux::RuntimeError, "last() expects an array" unless arr.is_a?(Array)
+          arr.last
+        },
+      ))
+
+      @globals.define("reverse", Builtin.new(
+        name: "reverse",
+        arity: 1,
+        body: ->(arr) {
+          raise Crux::RuntimeError, "reverse() expects an array" unless arr.is_a?(Array)
+          arr.reverse
+        },
+      ))
+
+      @globals.define("sort", Builtin.new(
+        name: "sort",
+        arity: 1,
+        body: ->(arr) {
+          raise Crux::RuntimeError, "sort() expects an array" unless arr.is_a?(Array)
+          arr.sort
+        },
+      ))
+
+      @globals.define("join", Builtin.new(
+        name: "join",
+        arity: 2,
+        body: ->(arr, sep) {
+          raise Crux::RuntimeError, "join() expects an array and a string" unless arr.is_a?(Array) && sep.is_a?(String)
+          arr.map { |v| stringify(v) }.join(sep)
+        },
+      ))
+
+      @globals.define("map", Builtin.new(
+        name: "map",
+        arity: 2,
+        body: ->(arr, func) {
+          raise Crux::RuntimeError, "map() expects an array" unless arr.is_a?(Array)
+          arr.map { |item| call_function(func, [item]) }
+        },
+      ))
+
+      @globals.define("filter", Builtin.new(
+        name: "filter",
+        arity: 2,
+        body: ->(arr, func) {
+          raise Crux::RuntimeError, "filter() expects an array" unless arr.is_a?(Array)
+          arr.select { |item| truthy?(call_function(func, [item])) }
+        },
+      ))
+
+      @globals.define("reduce", Builtin.new(
+        name: "reduce",
+        arity: 3,
+        body: ->(arr, init, func) {
+          raise Crux::RuntimeError, "reduce() expects an array" unless arr.is_a?(Array)
+          arr.reduce(init) { |acc, item| call_function(func, [acc, item]) }
+        },
+      ))
+
+      @globals.define("each", Builtin.new(
+        name: "each",
+        arity: 2,
+        body: ->(arr, func) {
+          raise Crux::RuntimeError, "each() expects an array" unless arr.is_a?(Array)
+          arr.each { |item| call_function(func, [item]) }
+          nil
+        },
+      ))
+
+      @globals.define("range", Builtin.new(
+        name: "range",
+        arity: 2,
+        body: ->(start, stop) {
+          raise Crux::RuntimeError, "range() expects numbers" unless start.is_a?(Integer) && stop.is_a?(Integer)
+          (start...stop).to_a
+        },
+      ))
+
+      @globals.define("concat", Builtin.new(
+        name: "concat",
+        arity: 2,
+        body: ->(a, b) {
+          raise Crux::RuntimeError, "concat() expects two arrays" unless a.is_a?(Array) && b.is_a?(Array)
+          a + b
+        },
+      ))
+
+      @globals.define("empty", Builtin.new(
+        name: "empty",
+        arity: 1,
+        body: ->(arr) {
+          raise Crux::RuntimeError, "empty() expects an array" unless arr.is_a?(Array)
+          arr.empty?
         },
       ))
     end
