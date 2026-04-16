@@ -326,6 +326,58 @@ module Crux
         },
       ))
 
+      @globals.define("floor", Builtin.new(
+        name: "floor",
+        arity: 1,
+        body: ->(val) {
+          check_number(val, "floor")
+          val.floor
+        },
+      ))
+
+      @globals.define("ceil", Builtin.new(
+        name: "ceil",
+        arity: 1,
+        body: ->(val) {
+          check_number(val, "ceil")
+          val.ceil
+        },
+      ))
+
+      @globals.define("round", Builtin.new(
+        name: "round",
+        arity: (1..2),
+        body: ->(val, digits = 0) {
+          check_number(val, "round")
+          val.round(digits)
+        },
+      ))
+
+      @globals.define("sqrt", Builtin.new(
+        name: "sqrt",
+        arity: 1,
+        body: ->(val) {
+          check_number(val, "sqrt")
+          raise Crux::RuntimeError, "sqrt() domain error: negative number" if val.negative?
+          Math.sqrt(val)
+        },
+      ))
+
+      @globals.define("pow", Builtin.new(
+        name: "pow",
+        arity: 2,
+        body: ->(base, exp) {
+          check_numbers(base, exp, "pow")
+          base ** exp
+        },
+      ))
+
+      @globals.define("random", Builtin.new(
+        name: "random",
+        arity: 0,
+        body: -> { rand },
+      ))
+
       @globals.define("to_float", Builtin.new(
         name: "to_float",
         arity: 1,

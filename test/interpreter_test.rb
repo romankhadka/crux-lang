@@ -366,6 +366,39 @@ class InterpreterTest < Minitest::Test
     assert_in_delta 3.0, eval_crux("to_float(3)")
   end
 
+  # -- Math builtins -------------------------------------------------------
+
+  def test_floor
+    assert_equal 3, eval_crux("floor(3.7)")
+    assert_equal 3, eval_crux("floor(3)")
+  end
+
+  def test_ceil
+    assert_equal 4, eval_crux("ceil(3.1)")
+    assert_equal 3, eval_crux("ceil(3)")
+  end
+
+  def test_round
+    assert_equal 4, eval_crux("round(3.5)")
+    assert_in_delta 3.14, eval_crux("round(3.14159, 2)")
+  end
+
+  def test_sqrt
+    assert_in_delta 3.0, eval_crux("sqrt(9)")
+    assert_raises(Crux::RuntimeError) { eval_crux("sqrt(-1)") }
+  end
+
+  def test_pow
+    assert_equal 8, eval_crux("pow(2, 3)")
+    assert_in_delta 1.0, eval_crux("pow(5, 0)")
+  end
+
+  def test_random
+    result = eval_crux("random()")
+    assert_kind_of Float, result
+    assert result >= 0.0 && result < 1.0
+  end
+
   # -- Integration ---------------------------------------------------------
 
   def test_fizzbuzz
