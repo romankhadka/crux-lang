@@ -68,6 +68,28 @@ class LexerTest < Minitest::Test
     assert_equal 2, tokens[2].line
   end
 
+  def test_block_comments_are_skipped
+    tokens = lex("1 /* this is skipped */ 2")
+    assert_token tokens[0], :number, 1
+    assert_token tokens[1], :number, 2
+  end
+
+  def test_multiline_block_comments
+    tokens = lex("1 /* line1\nline2\nline3 */ 2")
+    assert_token tokens[0], :number, 1
+    assert_token tokens[1], :number, 2
+  end
+
+  def test_nested_block_comments
+    tokens = lex("1 /* outer /* inner */ still comment */ 2")
+    assert_token tokens[0], :number, 1
+    assert_token tokens[1], :number, 2
+  end
+
+  def test_unterminated_block_comment_raises
+    assert_raises(Crux::SyntaxError) { lex("1 /* oops") }
+  end
+
   def test_unexpected_character_raises
     assert_raises(Crux::SyntaxError) { lex("@") }
   end

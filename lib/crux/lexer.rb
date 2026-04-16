@@ -90,6 +90,25 @@ module Crux
           advance
         elsif char == "#"
           advance while @pos < @source.length && @source[@pos] != "\n"
+        elsif char == "/" && @pos + 1 < @source.length && @source[@pos + 1] == "*"
+          start_line = @line
+          advance # skip /
+          advance # skip *
+          depth = 1
+          while @pos < @source.length && depth > 0
+            if @source[@pos] == "/" && @pos + 1 < @source.length && @source[@pos + 1] == "*"
+              advance
+              advance
+              depth += 1
+            elsif @source[@pos] == "*" && @pos + 1 < @source.length && @source[@pos + 1] == "/"
+              advance
+              advance
+              depth -= 1
+            else
+              advance
+            end
+          end
+          raise Crux::SyntaxError, "Unterminated block comment at line #{start_line}" if depth > 0
         else
           break
         end
